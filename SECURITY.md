@@ -8,7 +8,7 @@ If you believe you've found a security vulnerability in the AXIS protocol specif
 
 ### How to report
 
-Email: **`security@kipplelabs.com`**
+Email: **`security@axisprime.ai`**
 
 Include:
 - Description of the vulnerability
@@ -78,7 +78,7 @@ Deployments that use non-Ed25519 keys, weakened signature suites, or bypass TLS 
 
 ## Contact
 
-- Security issues: `security@kipplelabs.com`
-- General inquiries: `hello@kipplelabs.com`
+- Security issues: `security@axisprime.ai`
+- General inquiries: `hello@axisprime.ai`
 
 PGP/age keys for encrypted communication are available on request. We aim to publish these alongside this file once the keys are generated and rotated through a proper ceremony (planned before v1.0 launch).

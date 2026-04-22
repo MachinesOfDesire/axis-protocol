@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/MachinesOfDesire/axis-protocol/schemas/content-provenance.json",
+  "title": "Content Provenance Attestation (CPA)",
+  "description": "Signed record binding specific content to the producing agent, the delegation credential, the reviewer, and an approval timestamp. See SPEC.md §4.6.",
+  "type": "object",
+  "required": [
+    "axis_version",
+    "type",
+    "id",
+    "content_id",
+    "produced_by",
+    "produced_under_credential",
+    "reviewed_by",
+    "approved_at",
+    "root_operator",
+    "signature"
+  ],
+  "properties": {
+    "axis_version": {
+      "type": "string",
+      "const": "0.1"
+    },
+    "type": {
+      "type": "string",
+      "const": "ContentProvenanceAttestation"
+    },
+    "id": {
+      "type": "string",
+      "description": "Unique attestation identifier. Convention: cpa:{operator}:{descriptor}.",
+      "pattern": "^cpa:[a-z0-9][a-z0-9-]*(?:\\.[a-z0-9][a-z0-9-]*)*:[a-z0-9][a-z0-9:-]*$"
+    },
+    "content_id": {
+      "type": "string",
+      "description": "Stable reference to the content (URL, URN, or content hash).",
+      "minLength": 1
+    },
+    "produced_by": {
+      "type": "string",
+      "description": "AXIS ID of the agent that produced the content.",
+      "pattern": "^axis:[a-z0-9][a-z0-9-]*(?:\\.[a-z0-9][a-z0-9-]*)*:[a-z0-9][a-z0-9-]*$"
+    },
+    "produced_under_credential": {
+      "type": "string",
+      "description": "ID of the Delegation Credential authorizing the production agent to produce this kind of content.",
+      "pattern": "^dc:[a-z0-9][a-z0-9-]*(?:\\.[a-z0-9][a-z0-9-]*)*:[a-z0-9][a-z0-9:-]*$"
+    },
+    "reviewed_by": {
+      "type": "string",
+      "description": "AXIS ID of the reviewing agent or operator.",
+      "pattern": "^axis:[a-z0-9][a-z0-9-]*(?:\\.[a-z0-9][a-z0-9-]*)*:[a-z0-9][a-z0-9-]*$"
+    },
+    "approved_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "root_operator": {
+      "type": "string",
+      "description": "Root operator at the top of the delegation chain used to produce this content.",
+      "pattern": "^[a-z0-9][a-z0-9-]*(?:\\.[a-z0-9][a-z0-9-]*)*$"
+    },
+    "signature": {
+      "type": "string",
+      "description": "Ed25519 signature by the reviewer, base64url-encoded (no padding).",
+      "pattern": "^[A-Za-z0-9_-]+$"
+    }
+  },
+  "additionalProperties": false
+}

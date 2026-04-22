@@ -8,16 +8,16 @@ To add an implementation: open a pull request adding your registry to the list b
 
 ## AXIS Prime
 
-- **Operator:** Kipple Labs
+- **Operator:** Josh Ashcroft
 - **Registry URL:** `https://registry.axisprime.ai`
-- **Signup / registrar:** `https://signup.axisprime.ai`
+- **Signup / registrar:** `https://signup.axisprime.ai` (closed beta)
 - **Spec version:** v0.1
 - **Storage:** Cloudflare D1 (SQLite at the edge)
 - **Signature algorithm:** Ed25519
 - **Role:** Canonical reference registry, launch registrar
-- **Contact:** `hello@kipplelabs.com`
+- **Contact:** `hello@axisprime.ai`
 
-AXIS Prime is the launch implementation of AXIS. Built and operated by Kipple Labs — the same team that authored the protocol. Intended as the canonical reference and public-facing registry during v0.x, with migration to independent foundation operation planned alongside the v0.2+ governance transition.
+AXIS Prime is the launch implementation of AXIS, built and operated by the protocol's author. Intended as the canonical reference and public-facing registry during v0.x, with migration to independent foundation operation planned alongside the v0.2+ governance transition.
 
 ---
 

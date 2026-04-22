@@ -4,13 +4,15 @@ Thank you for your interest in contributing to the AXIS protocol.
 
 ## Before you contribute
 
-All contributions to this repository — including issues, pull requests, proposed spec changes, and example implementations — are welcome. To keep the project legally clean and ensure the protocol can be maintained and evolved over time (including the planned transition to independent foundation governance), we ask that contributors sign a Contributor License Agreement (CLA) before submitting a pull request.
+Contributions are welcome — issues, pull requests, proposed spec changes, example implementations, conformance tests, schema additions.
+
+We ask contributors to sign a Contributor License Agreement (CLA) before submitting a pull request. The CLA keeps the project legally clean and lets us transition stewardship to an independent foundation in the future without having to re-negotiate rights with every past contributor.
 
 ## Contributor License Agreement (CLA)
 
 By submitting a pull request or other contribution to this repository, you agree to the following terms:
 
-1. **You grant us a license.** You grant Kipple Labs and the AXIS project (including any future foundation that inherits stewardship) a perpetual, worldwide, non-exclusive, royalty-free, irrevocable license to use, reproduce, modify, distribute, and sublicense your contribution as part of the AXIS protocol, under the Apache 2.0 license or any future license the project adopts.
+1. **You grant us a license.** You grant the AXIS project maintainer (currently Josh Ashcroft) and any future foundation or successor organization that inherits stewardship of the AXIS protocol a perpetual, worldwide, non-exclusive, royalty-free, irrevocable license to use, reproduce, modify, distribute, and sublicense your contribution as part of the AXIS protocol, under the Apache 2.0 license or any future license the project adopts.
 
 2. **You retain your copyright.** Signing this CLA does not transfer ownership of your contribution. You keep your copyright. We just need the right to use it.
 
@@ -26,7 +28,7 @@ To indicate your agreement, add your name to the `CONTRIBUTORS.md` file as part 
 Your Name <your@email.com> — agreed to CLA on YYYY-MM-DD
 ```
 
-If you are contributing on behalf of an organization, contact us at `contrib@kipplelabs.com` before submitting so we can arrange an entity-level CLA if needed.
+If you are contributing on behalf of an organization, contact us at `contrib@axisprime.ai` before submitting so we can arrange an entity-level CLA if needed.
 
 ## How to contribute
 
@@ -70,14 +72,15 @@ Do NOT open a public issue for security vulnerabilities. See `SECURITY.md` for o
 - **Compatible implementation registrations** in `IMPLEMENTATIONS.md`
 - **Corrections** to errors, ambiguities, or inconsistencies
 - **Conformance test cases** — signed examples of valid and invalid records, credentials, and verification flows
-- **Schema additions** for specific industry contexts (healthcare, finance, government) that extend but do not break the core
+- **JSON Schema additions** under `schemas/` for the core record types
+- **Industry-specific profiles** (healthcare, finance, government) that extend but do not break the core
 
 ## What we're not looking for (yet)
 
-- Major architectural changes to the core data model — v0.x is deliberately unstable, but we're optimizing for stability within v0.1 and staging significant changes for v0.2
-- New credential types without a corresponding real-world use case
-- Infrastructure or tooling contributions — the reference implementation (AXIS Prime) lives in a separate (currently private) repository. This repo is the spec only.
-- PRs that conflate spec changes with implementation details
+- **Breaking changes to the v0.1 data model mid-version.** Between versions (v0.1 → v0.2) breaking changes are expected; within a version we hold the contract stable so implementers can ship against it. Significant data-model changes should target v0.2 — see [ROADMAP.md](./ROADMAP.md).
+- **New credential types without a real-world use case.** Describe the use case first; the credential type comes after.
+- **Infrastructure or tooling contributions.** The reference implementation (AXIS Prime) lives in a separate (currently private) repository. This repo is the spec only.
+- **PRs that conflate spec changes with implementation details.** Separate them.
 
 ## Style and conventions
 
@@ -107,14 +110,14 @@ Keep PRs focused. One conceptual change per PR. If you're also fixing typos, put
 
 ## Review process
 
-PRs are reviewed by the current maintainer (Josh Ashcroft / Kipple Labs) during the pre-foundation period. Review SLA is best-effort; there are no guaranteed response times during v0.x.
+PRs are reviewed by the current maintainer (Josh Ashcroft) during the pre-foundation period. Review SLA is best-effort; there are no guaranteed response times during v0.x.
 
 Once a foundation is formed, review will transition to the foundation's governance structure (expected v0.2 or v0.3 timeframe).
 
 ## Contact
 
 - **General questions:** open a GitHub issue
-- **CLA / organization-level contributions:** `contrib@kipplelabs.com`
+- **CLA / organization-level contributions:** `contrib@axisprime.ai`
 - **Security issues:** see `SECURITY.md`
 
 ## License

@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/MachinesOfDesire/axis-protocol/schemas/trust-attestation.json",
+  "title": "Trust Attestation (TA)",
+  "description": "Signed reputation statement about an agent. Distinct from authorization. See SPEC.md §4.5. Trust Attestations MUST NOT be stored in the registry; they are held by the issuer, the agent (as a portfolio), or an external attestation index.",
+  "type": "object",
+  "required": [
+    "axis_version",
+    "type",
+    "id",
+    "issued_by",
+    "subject",
+    "issued_at",
+    "scope",
+    "signature"
+  ],
+  "properties": {
+    "axis_version": {
+      "type": "string",
+      "const": "0.1"
+    },
+    "type": {
+      "type": "string",
+      "const": "TrustAttestation"
+    },
+    "id": {
+      "type": "string",
+      "description": "Unique attestation identifier. Convention: ta:{operator}:{descriptor}.",
+      "pattern": "^ta:[a-z0-9][a-z0-9-]*(?:\\.[a-z0-9][a-z0-9-]*)*:[a-z0-9][a-z0-9:-]*$"
+    },
+    "issued_by": {
+      "type": "string",
+      "description": "AXIS ID of the attestor.",
+      "pattern": "^axis:[a-z0-9][a-z0-9-]*(?:\\.[a-z0-9][a-z0-9-]*)*:[a-z0-9][a-z0-9-]*$"
+    },
+    "subject": {
+      "type": "string",
+      "description": "AXIS ID of the agent being attested.",
+      "pattern": "^axis:[a-z0-9][a-z0-9-]*(?:\\.[a-z0-9][a-z0-9-]*)*:[a-z0-9][a-z0-9-]*$"
+    },
+    "issued_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "scope": {
+      "type": "string",
+      "description": "Domain of the attestation. Semantics are attestor-defined in v0.1; v0.3 introduces a standard scope vocabulary.",
+      "minLength": 1
+    },
+    "level": {
+      "type": "integer",
+      "description": "Attestor-defined level. Semantics out-of-band. v0.2 introduces a standardized credentialSubject schema.",
+      "minimum": 0
+    },
+    "statement": {
+      "type": "string",
+      "description": "Plain-language description.",
+      "maxLength": 1000
+    },
+    "signature": {
+      "type": "string",
+      "description": "Ed25519 signature by the attestor, base64url-encoded (no padding).",
+      "pattern": "^[A-Za-z0-9_-]+$"
+    }
+  },
+  "additionalProperties": false
+}

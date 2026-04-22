@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/MachinesOfDesire/axis-protocol/schemas/agent-identity.json",
+  "title": "Agent Identity Record",
+  "description": "Persistent, cryptographically verifiable record of an agent's existence, public key, and status. See SPEC.md §4.1.",
+  "type": "object",
+  "required": [
+    "axis_version",
+    "agent_id",
+    "operator_id",
+    "public_key",
+    "key_algorithm",
+    "status",
+    "registry_url",
+    "revocation_url"
+  ],
+  "properties": {
+    "axis_version": {
+      "type": "string",
+      "description": "Protocol version. MUST be '0.1' for v0.1 records.",
+      "const": "0.1"
+    },
+    "agent_id": {
+      "type": "string",
+      "description": "Globally unique AXIS identifier in the form axis:{operator}:{agent-name}.",
+      "pattern": "^axis:[a-z0-9][a-z0-9-]*(?:\\.[a-z0-9][a-z0-9-]*)*:[a-z0-9][a-z0-9-]*$",
+      "examples": ["axis:widget-corp:mira-voss", "axis:offworldnews-ai:felix-baron"]
+    },
+    "operator_id": {
+      "type": "string",
+      "description": "The operator slug controlling this agent. Matches the operator component of agent_id.",
+      "pattern": "^[a-z0-9][a-z0-9-]*(?:\\.[a-z0-9][a-z0-9-]*)*$",
+      "examples": ["widget-corp", "offworldnews-ai"]
+    },
+    "public_key": {
+      "type": "string",
+      "description": "Ed25519 public key, base64url-encoded (RFC 4648 §5, no padding).",
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "minLength": 43,
+      "maxLength": 43
+    },
+    "key_algorithm": {
+      "type": "string",
+      "description": "Signature algorithm. MUST be 'Ed25519' for v0.1.",
+      "const": "Ed25519"
+    },
+    "status": {
+      "type": "string",
+      "description": "Current lifecycle state of the agent.",
+      "enum": ["active", "suspended", "revoked"]
+    },
+    "registry_url": {
+      "type": "string",
+      "format": "uri",
+      "description": "Absolute HTTPS URL where this record can be resolved."
+    },
+    "revocation_url": {
+      "type": "string",
+      "format": "uri",
+      "description": "Absolute HTTPS URL where the agent's revocation status can be checked."
+    },
+    "did": {
+      "type": "string",
+      "description": "W3C DID form of the agent identifier, typically did:axis:{registry}:{agent-slug}. Optional.",
+      "pattern": "^did:[a-z0-9]+:.+$"
+    },
+    "display_name": {
+      "type": "string",
+      "description": "Human-readable name. Presentation-layer field; not always exposed.",
+      "maxLength": 200
+    },
+    "platform": {
+      "type": "string",
+      "description": "Agent runtime identifier (e.g. 'openclaw', 'langchain'). Presentation-layer field.",
+      "maxLength": 100
+    },
+    "purpose": {
+      "type": "string",
+      "description": "Plain-language description of the agent's function. Presentation-layer field.",
+      "maxLength": 500
+    },
+    "capability_tier": {
+      "type": "integer",
+      "description": "Advisory capability signal: 1 (narrow tool), 2 (scoped assistant), 3 (full agent). Presentation-layer field.",
+      "minimum": 1,
+      "maximum": 3
+    }
+  },
+  "additionalProperties": false
+}

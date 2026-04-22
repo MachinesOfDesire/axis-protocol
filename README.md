@@ -1,16 +1,16 @@
 # AXIS — Agent Cross-system Identity Standard
 
-**Version:** 0.1 (Draft)
-**Author:** Josh Ashcroft / Kipple Labs
+**Version:** 0.1
+**Author:** Josh Ashcroft
 **License:** Apache 2.0
 **Reference implementation:** [AXIS Prime](https://axisprime.ai)
-**Status:** Early draft. Breaking changes expected before v1.0.
+**Status:** Public v0.1 release candidate. Breaking changes possible before v1.0; see [CHANGELOG.md](./CHANGELOG.md) for the versioning policy.
 
 ---
 
 ## What is AXIS?
 
-AXIS is an open protocol for autonomous AI agent identity, delegation, and authorization. It defines how agents prove who they are, who authorized them to act, and what they are allowed to do — in a way that any third party can verify without relying on a shared registry or prior relationship.
+AXIS is an open protocol for autonomous AI agent identity, delegation, and authorization. It defines how agents prove who they are, who authorized them to act, and what they are allowed to do — in a way that any third party can verify without any prior relationship with the agent or its operator. Verification is cryptographic and self-locating: the agent carries a pointer to its registry, and any verifier can resolve, verify, and make a trust decision with no pre-shared infrastructure. Multiple independent registries can coexist and interoperate.
 
 AXIS is designed for the cross-system case: an agent built and operated by one organization needs to be verified by a platform or service operated by a completely different organization, possibly using a different agent runtime, different identity infrastructure, and with no pre-existing relationship between any of the parties.
 
@@ -116,59 +116,41 @@ axis-protocol/
     └── content-provenance.json
 ```
 
-## The three surfaces
+## Protocol, registry, and implementations
 
-AXIS as a whole has three distinct surfaces, each with a different role:
+AXIS is an open protocol. This repository contains the specification and any party may implement a compliant registry. Multiple independent registries can coexist; agents registered through any compliant registrar are interoperable across the network.
 
-| Surface | Role | Who runs it |
-|---|---|---|
-| **AXIS Protocol** (this repo) | The open spec | Kipple Labs, transitioning to an independent foundation |
-| **AXIS Prime** ([axisprime.ai](https://axisprime.ai)) | Canonical reference registry | Operated commercially by Kipple Labs |
-| **Kipple Labs** ([kipplelabs.com](https://kipplelabs.com)) | Commercial umbrella — compliance products, audit tooling, certification, skills catalog | Kipple Labs |
-
-The protocol is open. Anyone can implement AXIS, run their own registry, and their agents will interoperate with the network. AXIS Prime is one canonical implementation; Kipple Labs sells products built on top of it. These are deliberately separate layers.
+A reference implementation exists (see below). Other implementations are welcome — see [IMPLEMENTATIONS.md](./IMPLEMENTATIONS.md) to register one.
 
 ## Governance
 
-Once the AXIS Prime registry is operationally self-sustaining, governance of the protocol will transfer to an independent nonprofit foundation. The open source licensing and Contributor License Agreement (see `CONTRIBUTING.md`) were designed from day one to make this transition legally and technically possible.
-
-Post-transfer, Kipple Labs becomes a third-party registrar among potentially many — structurally equivalent, competing on product quality (compliance products, audit dashboards, hosted offerings) rather than protocol ownership.
-
-## Compliance
-
-AXIS provides the cryptographic primitives that regulated industries increasingly need for AI agent governance. For detailed mappings to specific frameworks, see:
-
-- **EU AI Act Article 12** (record-keeping, traceability): [kipplelabs.com/compliance/eu-ai-act](https://kipplelabs.com/compliance/eu-ai-act)
-- **HIPAA 45 CFR 164.312** (audit controls, access management, BAA enforcement): [kipplelabs.com/compliance/hipaa](https://kipplelabs.com/compliance/hipaa)
-- **SOC 2 CC6/CC7** (planned)
-
-These are published by Kipple Labs as the compliance product surface — the protocol itself is neutral infrastructure, the compliance framing is a product layer on top.
+The protocol is currently stewarded by its author. Once adoption is sufficient to justify it, stewardship will transition to an independent nonprofit foundation. The open source licensing and Contributor License Agreement (see [CONTRIBUTING.md](./CONTRIBUTING.md)) were designed from day one to make this transition legally and technically possible.
 
 ## Relationship to existing standards
 
-- **W3C DIDs** — AXIS agent IDs are compatible with W3C Decentralized Identifiers. `axis:operator:agent` can be expressed as `did:axis:registry:agent`. The `did:axis` method is specified in `SPEC.md`.
+- **W3C DIDs** — AXIS agent IDs follow W3C Decentralized Identifier syntax: `axis:operator:agent` can be expressed as `did:axis:registry:agent`. Formal `did:axis` method registration with W3C is planned for v0.2.
 - **W3C Verifiable Credentials** — AXIS Delegation Credentials and Trust Attestations are designed to be expressible as W3C VCs. A VC-compatible encoding is planned for v0.2.
 - **zcap-spec** — AXIS delegation semantics align with the W3C Authorization Capabilities specification. The attenuation rule and chain depth limits follow zcap invariants.
 - **JWT / RFC 7519** — AXIS Identity Tokens are standard JWTs with AXIS-specific claims. Signed using EdDSA per RFC 8037.
-- **MCP (Model Context Protocol)** — AXIS Skills (planned) are built on MCP, making them model-agnostic and runtime-agnostic.
+- **MCP (Model Context Protocol)** — AXIS Skills (planned for v0.2 as the future capability marketplace layer) will build on MCP, making them model-agnostic and runtime-agnostic.
 
 ## Reference implementation
 
-AXIS Prime implements AXIS v0.1 as a Cloudflare Workers + D1 application.
+AXIS Prime implements AXIS v0.1 as a Cloudflare Workers + D1 application. It is currently in **closed beta**: the registry API, verification endpoint, and interactive demo are publicly readable, but self-service operator registration is gated while the billing surface and operator onboarding are finalized.
 
-- **Registry API:** `https://registry.axisprime.ai`
-- **Signup:** `https://signup.axisprime.ai`
+- **Registry API (read-only public):** `https://registry.axisprime.ai`
 - **Interactive demo:** `https://try.axisprime.ai`
+- **Operator signup:** `https://signup.axisprime.ai` (closed beta — contact for access)
 - **Key algorithm:** Ed25519 (Cloudflare Workers crypto)
 - **Storage:** Cloudflare D1 (SQLite at the edge)
 
-The reference implementation source is not open source at this time (private repo, operational security considerations for the live registry). The protocol it implements is open; any party can build a compatible registry from the spec alone.
+The reference implementation source is not open source at this time. The protocol it implements is open; any party can build a compatible registry from the spec alone.
 
 ## Versioning
 
-This is v0.1. It is an early draft. Breaking changes are expected before v1.0.
+This is v0.1 — the first public release candidate. Breaking changes are possible within the 0.x series; v1.0 will freeze the stable contract under strict semantic versioning discipline.
 
-See [CHANGELOG.md](./CHANGELOG.md) for version history and [ROADMAP.md](./ROADMAP.md) for planned v0.2 features.
+See [CHANGELOG.md](./CHANGELOG.md) for version history and the versioning policy. The consolidated forward-looking roadmap lives in [SPEC.md §17](./SPEC.md#17-roadmap); [ROADMAP.md](./ROADMAP.md) holds the longer-form narrative.
 
 ## Contributing
 
@@ -180,4 +162,4 @@ To report a security issue, see [SECURITY.md](./SECURITY.md).
 
 Licensed under the Apache License, Version 2.0. See [LICENSE](./LICENSE) for the full text.
 
-© 2026 Kipple Labs / Josh Ashcroft. "AXIS" and "AXIS Prime" are trademarks of Kipple Labs. Use of the trademarks for compatible implementations is permitted; see [CONTRIBUTING.md](./CONTRIBUTING.md) for guidance.
+© 2026 Josh Ashcroft. "AXIS" and "AXIS Prime" are pending trademarks. Use of the names for compatible implementations is permitted; see [CONTRIBUTING.md](./CONTRIBUTING.md) for guidance.

@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/MachinesOfDesire/axis-protocol/schemas/operator-identity.json",
+  "title": "Operator Identity Record",
+  "description": "Persistent, cryptographically verifiable record of an operator and its signing key. See SPEC.md §4.2.",
+  "type": "object",
+  "required": [
+    "axis_version",
+    "operator_id",
+    "public_key",
+    "key_algorithm",
+    "status",
+    "registry_url",
+    "revocation_url"
+  ],
+  "properties": {
+    "axis_version": {
+      "type": "string",
+      "const": "0.1"
+    },
+    "operator_id": {
+      "type": "string",
+      "description": "Operator slug. Globally unique within a registry (or globally unique via domain verification at Tier 1).",
+      "pattern": "^[a-z0-9][a-z0-9-]*(?:\\.[a-z0-9][a-z0-9-]*)*$",
+      "examples": ["widget-corp", "kipple.joshashcroft", "op-7f3a2b9c"]
+    },
+    "public_key": {
+      "type": "string",
+      "description": "Ed25519 public key used for signing delegation credentials. base64url-encoded.",
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "minLength": 43,
+      "maxLength": 43
+    },
+    "key_algorithm": {
+      "type": "string",
+      "const": "Ed25519"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["active", "suspended", "deactivated"]
+    },
+    "registry_url": {
+      "type": "string",
+      "format": "uri"
+    },
+    "revocation_url": {
+      "type": "string",
+      "format": "uri"
+    },
+    "display_name": {
+      "type": "string",
+      "description": "Human-readable name. Presentation-layer field.",
+      "maxLength": 200
+    },
+    "verification_tier": {
+      "type": "string",
+      "description": "Level of operator identity verification performed by the registrar. Presentation-layer field.",
+      "enum": ["email", "domain", "kyb_individual", "kyb_business"]
+    },
+    "domain": {
+      "type": "string",
+      "description": "Verified domain. Present when verification_tier is 'domain' or higher. Presentation-layer field.",
+      "format": "hostname"
+    },
+    "registered_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp (UTC). Presentation-layer field."
+    }
+  },
+  "additionalProperties": false
+}

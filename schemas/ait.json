@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/MachinesOfDesire/axis-protocol/schemas/ait.json",
+  "title": "AXIS Identity Token (AIT)",
+  "description": "A JWT (RFC 7519) signed with EdDSA (RFC 8037) that an agent presents to prove its identity. This schema validates the decoded header and payload; JWT signature verification is a separate step. See SPEC.md §4.3.",
+  "type": "object",
+  "required": ["header", "payload"],
+  "properties": {
+    "header": {
+      "type": "object",
+      "required": ["alg", "typ"],
+      "properties": {
+        "alg": {
+          "type": "string",
+          "description": "Signature algorithm. MUST be 'EdDSA' for v0.1.",
+          "const": "EdDSA"
+        },
+        "typ": {
+          "type": "string",
+          "description": "Token type. MUST be 'AIT'.",
+          "const": "AIT"
+        },
+        "kid": {
+          "type": "string",
+          "description": "Key identifier. SHOULD be the agent's AXIS ID to allow verifiers to select the correct key.",
+          "pattern": "^axis:[a-z0-9][a-z0-9-]*(?:\\.[a-z0-9][a-z0-9-]*)*:[a-z0-9][a-z0-9-]*$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "payload": {
+      "type": "object",
+      "required": ["iss", "sub", "iat", "exp", "axis_version", "operator_id", "registry_url"],
+      "properties": {
+        "iss": {
+          "type": "string",
+          "description": "Issuer. MUST equal the agent's AXIS ID.",
+          "pattern": "^axis:[a-z0-9][a-z0-9-]*(?:\\.[a-z0-9][a-z0-9-]*)*:[a-z0-9][a-z0-9-]*$"
+        },
+        "sub": {
+          "type": "string",
+          "description": "Subject. For AITs, MUST equal iss.",
+          "pattern": "^axis:[a-z0-9][a-z0-9-]*(?:\\.[a-z0-9][a-z0-9-]*)*:[a-z0-9][a-z0-9-]*$"
+        },
+        "iat": {
+          "type": "integer",
+          "description": "Issued-at timestamp (Unix seconds).",
+          "minimum": 0
+        },
+        "exp": {
+          "type": "integer",
+          "description": "Expiration timestamp (Unix seconds). SHOULD be within 24 hours of iat.",
+          "minimum": 0
+        },
+        "axis_version": {
+          "type": "string",
+          "const": "0.1"
+        },
+        "operator_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]*(?:\\.[a-z0-9][a-z0-9-]*)*$"
+        },
+        "registry_url": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL where the agent's AIR can be resolved."
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

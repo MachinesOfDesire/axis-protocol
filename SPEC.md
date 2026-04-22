@@ -1,18 +1,33 @@
 # AXIS Protocol Specification
 
-**Version:** 0.1 (Draft)
-**Status:** Early draft. Breaking changes expected before v1.0.
-**Authors:** Josh Ashcroft / Kipple Labs
+**Version:** 0.1
+**Status:** Public v0.1 release candidate. This is the canonical AXIS Protocol v0.1 specification. Breaking changes are possible before v1.0; see §17 Roadmap and `CHANGELOG.md` for the versioning policy.
+**Author:** Josh Ashcroft
 **License:** Apache 2.0
-**Last updated:** 2026-04-18
+**Repository:** https://github.com/MachinesOfDesire/axis-protocol
+**Last updated:** 2026-04-19
 
 ## Abstract
 
 AXIS (Agent Cross-system Identity Standard) is a protocol for autonomous AI agent identity, delegation, and authorization across operator boundaries. This document specifies the protocol's data model, API contract, verification procedures, and conformance criteria for v0.1.
 
-AXIS solves the cross-system agent trust problem: an agent operated by one organization can be verified by a platform operated by a different organization, with no shared infrastructure, no pre-existing relationship, and no proprietary callbacks. Verification is cryptographic, local, and self-contained.
+AXIS addresses the agent accountability problem: when an autonomous AI agent takes a consequential action, third parties — receiving platforms, auditors, courts, regulators — must be able to verify who authorized that action, what scope they authorized, and whether that authority is still in force. Today's identity tooling does not produce the evidence regulatory frameworks and live incidents demand. AXIS provides that evidence as a first-class protocol artifact: a cryptographically signed, self-contained credential chain that any third party can verify locally, without prior relationship to the agent's operator.
 
-The reference implementation is AXIS Prime, operated by Kipple Labs at `registry.axisprime.ai`. The protocol itself is open; any party may implement a compliant registry.
+The defining features are a lean credential surface (identity token plus optional delegation chain), a self-locating registry model where credentials carry the pointer to the registry that issued them, and monotonic delegation attenuation with a root-operator invariant. Credential chain validation is performed locally by the verifier; the only network dependencies are standard lookups against the agent's self-declared registry (public key retrieval and revocation checks), and that registry may be any AXIS-compliant implementation.
+
+The reference implementation is AXIS Prime at `registry.axisprime.ai`. The protocol itself is open; any party may implement a compliant registry.
+
+## 0. Motivation
+
+Autonomous AI agents are taking consequential actions across organizational boundaries — producing content, making commitments, accessing regulated data, executing transactions — at a rate that outpaces the identity infrastructure supporting them. When an agent acts, three questions need clean answers, and today none of them have clean mechanisms:
+
+1. **Who authorized this agent to act?** A chain of authority back to a human operator.
+2. **What scope were they authorized for?** What the agent was, and was not, permitted to do.
+3. **Can we prove it later, to an auditor or a court?** Tamper-evident evidence that survives the agent, the platform, and organizational memory.
+
+Organizations are being held liable for agent actions they cannot later explain — their agent made a commitment, the organization is bound by it, and no one can produce the chain of authority that authorized it. Regulatory frameworks increasingly assume this evidence can be produced: EU AI Act Article 12 requires automatic event recording for high-risk AI systems; HIPAA 45 CFR 164.312(b) requires audit controls over electronic Protected Health Information access; SOC 2 requires evidence of authorization for Trust Services Criteria controls. Agent actions fall inside all of these frameworks, and today's identity tooling — API keys, session tokens, OAuth scopes — does not produce the right kind of evidence.
+
+AXIS addresses this gap at the protocol layer. It defines portable, cryptographically verifiable agent identities; delegation credentials that encode scope and time constraints; revocation with known propagation semantics; and a verification procedure that produces a tamper-evident artifact at the time of action — the evidence that regulatory frameworks, auditors, and courts can reason about after the fact.
 
 ## 1. Requirements language
 
@@ -20,7 +35,7 @@ The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "S
 
 ## 2. Terminology
 
-**Agent** — An autonomous software system that takes actions on behalf of a human operator or another agent. Every agent has a persistent cryptographic identity (Ed25519 keypair).
+**Agent** — An autonomous software system that takes actions on behalf of a human operator or another agent. Every agent has a persistent cryptographic identity (an Ed25519 keypair). Identity is bound to the keypair, not to the underlying model, memory, or runtime: an agent may change models, memory stores, or execution environments while retaining its AXIS identity as long as its keypair remains under the operator's control.
 
 **Operator** — A human or organization controlling one or more agents. The operator is the root of every delegation chain.
 
@@ -69,14 +84,14 @@ All records are JSON. Field names are lowercase with underscores. Timestamps are
 ```json
 {
   "axis_version": "0.1",
-  "agent_id": "axis:widget-corp:mira-voss",
-  "did": "did:axis:prime:mira-voss",
+  "agent_id": "axis:widget-corp:editor",
+  "did": "did:axis:prime:editor",
   "operator_id": "widget-corp",
   "public_key": "lDwxSH896YH5IlqxAHaZmKFAI-32qIiLBTdTPOcTVCE",
   "key_algorithm": "Ed25519",
   "status": "active",
-  "registry_url": "https://registry.axisprime.ai/agents/axis:widget-corp:mira-voss",
-  "revocation_url": "https://registry.axisprime.ai/revocation/axis:widget-corp:mira-voss"
+  "registry_url": "https://registry.axisprime.ai/agents/axis:widget-corp:editor",
+  "revocation_url": "https://registry.axisprime.ai/revocation/axis:widget-corp:editor"
 }
 ```
 
@@ -92,6 +107,8 @@ All records are JSON. Field names are lowercase with underscores. Timestamps are
 - `revocation_url` (string) — absolute URL where revocation status can be checked
 
 **Optional fields** (presentation layer; see §5):
+
+Optional fields enable presentation-layer functionality (display name, purpose, capability signals) and interoperability with W3C DID tooling. They are not required for cryptographic verification — a minimal AIR with only the required fields above is sufficient for the core verification procedure in §8.
 
 - `did` (string) — W3C DID form, typically `did:axis:{registry}:{agent-slug}`
 - `display_name` (string) — human-readable name
@@ -139,20 +156,20 @@ The AIT is a JWT per [RFC 7519], signed using EdDSA per [RFC 8037].
 {
   "alg": "EdDSA",
   "typ": "AIT",
-  "kid": "axis:widget-corp:mira-voss"
+  "kid": "axis:widget-corp:editor"
 }
 ```
 
 **Payload:**
 ```json
 {
-  "iss": "axis:widget-corp:mira-voss",
-  "sub": "axis:widget-corp:mira-voss",
+  "iss": "axis:widget-corp:editor",
+  "sub": "axis:widget-corp:editor",
   "iat": 1743292800,
   "exp": 1743379200,
   "axis_version": "0.1",
   "operator_id": "widget-corp",
-  "registry_url": "https://registry.axisprime.ai/agents/axis:widget-corp:mira-voss"
+  "registry_url": "https://registry.axisprime.ai/agents/axis:widget-corp:editor"
 }
 ```
 
@@ -177,8 +194,8 @@ Signed with the agent's private key. Verifiers resolve `registry_url` to retriev
   "axis_version": "0.1",
   "type": "DelegationCredential",
   "id": "dc:widget-corp:editor-researcher-2026-04",
-  "issued_by": "axis:widget-corp:mira-voss",
-  "issued_to": "axis:widget-corp:carine",
+  "issued_by": "axis:widget-corp:editor",
+  "issued_to": "axis:widget-corp:researcher",
   "root_operator": "widget-corp",
   "parent_credential_id": "dc:widget-corp:operator-editor-2026-03",
   "scope": ["article:draft", "article:submit"],
@@ -193,7 +210,7 @@ Signed with the agent's private key. Verifiers resolve `registry_url` to retriev
   "proof": {
     "type": "Ed25519Signature2020",
     "created": "2026-04-01T00:00:00Z",
-    "verificationMethod": "did:axis:prime:mira-voss#key-1",
+    "verificationMethod": "did:axis:prime:editor#key-1",
     "proofPurpose": "assertionMethod",
     "proofValue": "<Ed25519 signature, base64url>"
   }
@@ -235,8 +252,8 @@ Signed with the agent's private key. Verifiers resolve `registry_url` to retriev
   "axis_version": "0.1",
   "type": "TrustAttestation",
   "id": "ta:widget-corp:researcher-2026-04",
-  "issued_by": "axis:widget-corp:mira-voss",
-  "subject": "axis:widget-corp:carine",
+  "issued_by": "axis:widget-corp:editor",
+  "subject": "axis:widget-corp:researcher",
   "issued_at": "2026-04-15T00:00:00Z",
   "scope": "editorial:research",
   "level": 3,
@@ -263,7 +280,11 @@ Signed with the agent's private key. Verifiers resolve `registry_url` to retriev
 
 **Storage.** Trust Attestations MUST NOT be stored in the registry. They are stored by the issuer, the agent (as a portfolio), or an external attestation index. The registry's job is identity, not reputation.
 
-**Aggregation and scoring.** v0.1 does not specify how multiple Trust Attestations are aggregated. This is out of scope for v0.1 and planned for v0.2.
+**Aggregation and scoring.** v0.1 does not specify how multiple Trust Attestations are aggregated. This is out of scope for v0.1 and planned for v0.3 (see §17.2).
+
+**Design rationale — what a Trust Attestation is, and what it is not.** The v0.1 Trust Attestation is deliberately a signed container, not a prescribed rating system. AXIS does not specify what constitutes trust, how it is measured, or how multiple attestations combine. This is intentional: different verticals apply different standards of evidence, and prescribing a single scale in v0.1 would be either too narrow for most use cases or too abstract to be useful.
+
+The design intent is to favor **measurable behavioral signals** (analogous to credit utilization — report observable facts, let consumers decide) over **opinion signals** (analogous to star ratings — subjective judgments without anchoring). A well-formed attestation reports events that happened, states that can be audited, or measurements that can be reproduced. A weakly-formed attestation reports feelings. v0.1 does not enforce this distinction — `statement` is free-form — but implementations SHOULD lean toward observable, signable events rather than editorial judgments. The v0.3 analytical layer (aggregation, weighting, gaming resistance — see §17.2) is designed to operate on behavioral signals; opinion signals degrade the aggregation's usefulness.
 
 ### 4.6 Content Provenance Attestation (CPA)
 
@@ -273,9 +294,9 @@ Signed with the agent's private key. Verifiers resolve `registry_url` to retriev
   "type": "ContentProvenanceAttestation",
   "id": "cpa:widget-corp:article-2026-04-15",
   "content_id": "https://example.com/articles/ai-agent-identity",
-  "produced_by": "axis:widget-corp:carine",
+  "produced_by": "axis:widget-corp:researcher",
   "produced_under_credential": "dc:widget-corp:editor-researcher-2026-04",
-  "reviewed_by": "axis:widget-corp:mira-voss",
+  "reviewed_by": "axis:widget-corp:editor",
   "approved_at": "2026-04-15T12:00:00Z",
   "root_operator": "widget-corp",
   "signature": "<Ed25519 signature by reviewer, base64url>"
@@ -351,7 +372,7 @@ Request body:
     "email": "alice@example.com"
   },
   "metadata": {
-    "name": "mira-voss",
+    "name": "editor",
     "description": "Editorial director."
   }
 }
@@ -360,11 +381,11 @@ Request body:
 Response (201):
 ```json
 {
-  "axis_id": "axis:example-xyz:mira-voss",
-  "did": "did:axis:prime:mira-voss",
+  "axis_id": "axis:example-xyz:editor",
+  "did": "did:axis:prime:editor",
   "token": "<signed AIT JWT>",
-  "registry_url": "https://registry.axisprime.ai/agents/axis:example-xyz:mira-voss",
-  "revocation_url": "https://registry.axisprime.ai/revocation/axis:example-xyz:mira-voss"
+  "registry_url": "https://registry.axisprime.ai/agents/axis:example-xyz:editor",
+  "revocation_url": "https://registry.axisprime.ai/revocation/axis:example-xyz:editor"
 }
 ```
 
@@ -386,7 +407,7 @@ Response:
 ```json
 {
   "valid": true,
-  "agent_id": "axis:widget-corp:mira-voss",
+  "agent_id": "axis:widget-corp:editor",
   "operator_id": "widget-corp",
   "verification_tier": "domain",
   "status": "active",
@@ -403,7 +424,7 @@ Check revocation status of an agent. Public endpoint.
 Response:
 ```json
 {
-  "agent_id": "axis:widget-corp:mira-voss",
+  "agent_id": "axis:widget-corp:editor",
   "revoked": false,
   "checked_at": "2026-04-15T12:00:00Z"
 }
@@ -477,7 +498,7 @@ Response:
 
 - `minimum_verification_level` — lowest operator verification tier accepted
 - `required_scopes` — scopes the agent must hold
-- `allow_unverified` — whether agents without AITs are allowed (with or without a verified badge)
+- `allow_unverified` — boolean. If `true`, requests without an AIT are accepted (the platform chooses whether to treat them as verified or as anonymous traffic). If `false`, requests without an AIT are rejected.
 - `registration_url` — where to direct unregistered agents or operators who don't meet the minimum tier
 
 **v0.2 candidates:** `blocked_operators`, `approved_operators`, `rate_limits`.
@@ -614,8 +635,6 @@ AXIS supports Article 12 obligations via:
 
 AXIS does NOT solve: risk analysis (Art. 9), data governance (Art. 10), technical documentation (Art. 11), accuracy/robustness (Art. 15), fundamental rights impact assessment (Art. 27).
 
-Full mapping: https://kipplelabs.com/compliance/eu-ai-act
-
 ### 10.2 HIPAA 45 CFR 164.312 (Technical Safeguards)
 
 AXIS supports HIPAA Security Rule obligations via:
@@ -629,17 +648,37 @@ AXIS supports HIPAA Security Rule obligations via:
 
 AXIS does NOT solve: encryption at rest (164.312(a)(2)(iv)), transmission security (164.312(e)), integrity of ePHI itself (164.312(c)), physical safeguards (164.310), risk analysis (164.308(a)(1)), training (164.308(a)(5)).
 
-Full mapping: https://kipplelabs.com/compliance/hipaa
-
 ### 10.3 W3C DID Core
 
 AXIS agent IDs are compatible with W3C Decentralized Identifiers. The `did:axis` method:
 
-- **Identifier syntax:** `did:axis:{registry-slug}:{agent-slug}` (e.g. `did:axis:prime:mira-voss`)
+- **Identifier syntax:** `did:axis:{registry-slug}:{agent-slug}` (e.g. `did:axis:prime:editor`)
 - **DID Document:** derived from the Agent Identity Record, exposing `publicKey`, `authentication`, and `service` endpoints
 - **Resolution:** via the agent's `registry_url` using the `GET /resolve/:did` endpoint
 
 Formal `did:axis` method specification planned for v0.2.
+
+### 10.4 Compliance posture
+
+AXIS is identity infrastructure, not an AI system or a data processor. The protocol itself does not make compliance claims; it provides primitives (cryptographic attribution, delegation, revocation) that platforms and registries can use to meet regulatory obligations.
+
+**EU AI Act.** AXIS is not a "high-risk AI system" under the Act and is not itself subject to it. However, AXIS enables platforms building on top of it to meet Act requirements around agent traceability, human oversight, and transparency. See §10.1 for the Article 12 mapping.
+
+**GDPR and data protection.** Registries handling EU operators' personal data (email, phone, KYB documents) act as data controllers under GDPR. Three implications for registry implementations:
+
+- The Registry Data Visibility Model (§5) supports data minimization by default: only material needed for cryptographic verification is publicly exposed.
+- Right-to-be-forgotten interacts with permanent cryptographic attribution. Registry operators SHOULD separate PII (name, contact, KYB evidence) from identity records (public keys, revocation state) so erasure requests can remove PII without invalidating the audit trail. Revocation, not record deletion, is the protocol's canonical response to account closure.
+- Cross-border transfer obligations (e.g. Standard Contractual Clauses for non-EU registrars handling EU subjects) are a registrar concern, not a protocol concern.
+
+The protocol is largely agnostic to GDPR mechanics; compliance lives at the registrar implementation layer.
+
+**Explicit non-goals.** AXIS v0.1 does not provide:
+
+- HIPAA conformance for the protocol itself. §10.2 maps AXIS primitives to HIPAA Security Rule obligations; implementations serving covered entities or business associates are responsible for the full set of administrative, physical, and technical safeguards under 45 CFR 164 Subparts C and D. AXIS is one technical control among many.
+- Industry-specific profiles (financial services, healthcare, government). Profiles on top of AXIS for specific verticals may be defined by domain groups; they are out of scope for the base protocol.
+- SOC 2, ISO 27001, or other organizational certifications. These attest to a registrar's operational practices, not the protocol.
+
+**Standards alignment.** AXIS is designed to sit inside existing identity and credential standards rather than supplant them. See §10.3 (W3C DID), the v0.2 roadmap (§17) for VC-compatible encoding, and the Informative references (§15) for related specifications (W3C zcap-spec, MCP).
 
 ## 11. Security considerations
 
@@ -743,6 +782,7 @@ AXIS proposes registration of these URIs with IANA following the procedures in [
 - HIPAA 45 CFR Part 164, Subpart C (Security Rule)
 - W3C zcap-spec — Authorization Capabilities
 - MCP (Model Context Protocol) — Anthropic
+- AIP (Agent Identity Protocol) — provai-dev, IETF Internet-Draft format. Sibling effort in the agent-identity space, with a different design balance: OAuth 2.1-aligned grant ceremonies, W3C DID-first foundation, threat-model-driven tiering, and a registry push-notification channel. AXIS optimizes instead for leanness, cross-registry portability, and pull-based verification.
 
 ## 16. Acknowledgements
 
@@ -750,10 +790,22 @@ AXIS was extracted from a production system and refined through discussion in th
 
 ---
 
+## 17. Roadmap
+
+AXIS is in active development. Forward-looking work is planned for future versions; all items are targets, not commitments.
+
+**v0.2 — in design.** `/.well-known/axis-scopes` manifest format, `/.well-known/axis-registry` discovery, `access_policy` extensions, formal `did:axis` method spec, Trust Attestation credentialSubject schema, W3C VC-compatible encoding, cross-system delegation to foreign DIDs, key rotation protocol, algorithm negotiation, client SDK specifications, registrar compliance attestations, operator slug tiering, AXIS Skills Protocol, platform registry discovery, agent rental.
+
+**v0.3 — planned.** Standard common scope vocabulary, Trust Attestation aggregation and scoring, agent notification protocol, delegation credential constraint enhancements.
+
+**v1.0 — stability target.** Non-breaking-change threshold. Data-model and API-contract surfaces stable under semantic versioning. Pre-v1.0 releases may contain breaking changes between minor versions; implementers should track `CHANGELOG.md` closely.
+
+**Out of scope.** Industry-specific profiles (HIPAA, financial services, etc.), gateway middleware specification, central operator slug registry, agent runtime specification, payment processing.
+
+For full rationale, descriptions, and context on every item above, see [ROADMAP.md](./ROADMAP.md).
+
+---
+
 ## Appendix A — Version history
 
-See [CHANGELOG.md].
-
-## Appendix B — Roadmap
-
-See [ROADMAP.md].
+See [CHANGELOG.md]. The versioning policy appears in §17.
