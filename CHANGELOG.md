@@ -6,7 +6,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 **Versioning policy.** Pre-v1.0 releases (all 0.x versions) may contain breaking changes between minor versions. v1.0 will freeze the stable contract under stricter discipline: patch releases additive only, minor releases may add optional fields or endpoints, major releases may break backward compatibility only with explicit governance approval. Track this file closely until v1.0.
 
-## [0.1.0] — Public release candidate (pending external licensing review)
+## [0.1.1] — 2026-04-24
+
+Patch release. Clarifications and corrections only; no new wire fields, no behavior changes for v0.1.0-conformant implementations.
+
+### Clarified
+
+- **§5.1 Public layer.** Added `service_endpoints` (W3C DID `service` array shape, optional, agents only) to the public-layer enumeration. The reference implementation already returned this field; the spec now documents it.
+- **§5.1 Public layer.** Added a normative MUST that public-layer identifiers carry no PII. Specifically, `operator_id` derived from any part of an email address is non-conformant; email-tier operators receive opaque random identifiers. Domain-derived identifiers remain acceptable (the domain is already public). Cross-references the new Registry Conformance §8.1.1.
+- **§5.2 Presentation layer.** Spelled out the three paths that unlock the presentation layer: (1) valid AIT in the request, (2) the owning registrar reading its own data, (3) admin/super_admin role. v0.1.0 only described path 1; the reference implementation has supported paths 2 and 3 since April 23, 2026.
+- **§13 Conformance criteria.** Added a clarifying note distinguishing wire-format compliance (this document) from runtime-behavior conformance (separate document at github.com/MachinesOfDesire/axis-conformance). Production registries should satisfy both.
+
+### Editorial
+
+- Status banner moved from "Public v0.1 release candidate" to "Public release" on README and SPEC. The release-candidate hedging predated the v0.1.1 patch pass; it is no longer accurate.
+- "Last updated" bumped to 2026-04-24.
+
+### Not changed
+
+No changes to: AIT signing algorithm, AIT structural format, endpoint paths, request or response schemas (other than documenting the existing `service_endpoints` field), delegation envelope, revocation mechanism, or any v0.1.0 claim name.
+
+A consumer that implements v0.1.0 reads a v0.1.1 record without modification.
+
+---
+
+## [0.1.0] — Public release
 
 This is the first public version of the AXIS Protocol specification. The spec has been through internal review and the reference implementation (AXIS Prime, operated by Kipple Labs at `registry.axisprime.ai`) has been running in production with the Offworld News autonomous publication since March 2026.
 

@@ -108,6 +108,21 @@ Protocol-level handling for transferring operational control of an agent between
 
 Reference interfaces for operator-side and platform-side libraries. The specs define the interface; implementations remain the domain of ecosystem contributors. Intent: lower the bar for new registries and verifiers to achieve v0.2 conformance.
 
+### Evidence Record Types
+
+Wire-format addition: a small family of signed record types specifically designed to be evidence regulators look for, on top of the existing AIT and Delegation Credential primitives. v0.2 introduces four:
+
+- **AI Disclosure Receipt** — a signed record asserting that a specific human user was shown an "interacting with AI" notice at time T, with a hash of the notice content. Pairs with EU AI Act Art. 50(1) (provider obligation) and Art. 50(4) (deep-fake disclosure).
+- **AI Decision Notification Ledger Entry** — parallel record asserting that a specific natural person was informed they were subject to an AI-assisted decision. Pairs with EU AI Act Art. 26(11) (deployer obligation for Annex III high-risk systems).
+- **Human Oversight Assertion** — signed record from an operator confirming that a human reviewed a specific agent output at time T, with a verdict (approved, escalated, rejected). Turns the implicit "delegation = authority to act" into explicit "and the authorised human checked." Pairs with Art. 14 oversight requirements and Annex IV(2)(e).
+- **Fundamental Rights Impact Assessment (FRIA) Attestation** — signed record asserting an FRIA document was completed on date D by operator O covering system S, with a hash of the FRIA itself. Does not substitute for the FRIA's substantive content; records the existence-and-authorship of the assessment so an auditor can locate and verify it. Pairs with Art. 27.
+
+Rationale: the EU AI Act enumerates documentation categories regulators expect to see (Annex IV, Art. 26(5), Art. 73, etc.). AXIS already produces the underlying signed-event substrate. v0.2 introduces named, schema-defined record types that map cleanly to those categories, so a registry can answer "show me all the AI Disclosure Receipts for operator O between dates D1 and D2" rather than the platform inventing its own conventions on top of generic AITs.
+
+Scope boundary: these records carry the signed evidence that an event happened. They do not substitute for substantive compliance work (the actual FRIA, the actual training-data summary, the actual risk methodology) — those remain the deployer's responsibility. The wire format gives the auditor a stable place to look; the human work is still human work.
+
+Schemas are deferred to a partner-input cycle; the v0.2 PR will land the record-type definitions but leave the per-field schemas configurable until validated against actual auditor expectations.
+
 ## v0.3 — planned
 
 v0.3 extends depth and analytics on top of the v0.2 surface. Captured as terse bullets in [SPEC.md §17.2](./SPEC.md#172-planned-for-v03).

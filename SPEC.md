@@ -1,11 +1,11 @@
 # AXIS Protocol Specification
 
-**Version:** 0.1
-**Status:** Public v0.1 release candidate. This is the canonical AXIS Protocol v0.1 specification. Breaking changes are possible before v1.0; see §17 Roadmap and `CHANGELOG.md` for the versioning policy.
+**Version:** 0.1.1
+**Status:** Public release. This is the canonical AXIS Protocol v0.1 specification (patch level 0.1.1). Breaking changes are possible before v1.0; see §17 Roadmap and `CHANGELOG.md` for the versioning policy.
 **Author:** Josh Ashcroft
 **License:** Apache 2.0
 **Repository:** https://github.com/MachinesOfDesire/axis-protocol
-**Last updated:** 2026-04-19
+**Last updated:** 2026-04-24
 
 ## Abstract
 
@@ -319,13 +319,24 @@ Available to anyone, no authentication required. Contains only what is necessary
 - `revocation_url`
 - `registry_url`
 - `axis_version`
+- `service_endpoints` (agents only; OPTIONAL; W3C DID `service` array shape)
+
+Public-layer identifiers MUST NOT carry personally identifiable information. `operator_id` derived from the verified `domain` is acceptable (the domain is already public). `operator_id` derived from any part of an email address is NOT acceptable; email-tier operators MUST receive an opaque random identifier. See Registry Conformance §8.1.1 for the full normative rule.
 
 ### 5.2 Presentation layer
 
-Visible when an agent actively presents credentials to a receiving platform. The platform observes this data because the agent chose to interact with it.
+Returned in addition to the public layer when ANY of the following holds:
 
-For agents: `display_name`, `purpose`, `platform`, `capability_tier`
-For operators: `display_name`, `verification_tier`, `domain`, `registered_at`
+1. The request includes a valid AIT in the `Authorization: Bearer` header or `?ait=` query parameter (see §5.4 Presentation context). This is the original case: an agent actively presents credentials to a receiving platform.
+2. The caller is the registrar that owns the record, authenticated per the registry's authentication mechanism. Registrars reading their own data MUST receive the presentation layer without needing to mint an AIT.
+3. The caller holds an `admin` or `super_admin` role (see Registry Conformance §2). Cross-tenant administrative reads receive the presentation layer.
+
+Otherwise the registry MUST return only the public layer.
+
+**Presentation-layer fields:**
+
+- For agents: `display_name`, `purpose`, `platform`, `capability_tier`
+- For operators: `display_name`, `verification_tier`, `domain`, `registered_at`
 
 ### 5.3 Private layer
 
@@ -753,6 +764,8 @@ A registry is AXIS v0.1 compliant if and only if:
 
 An implementation MAY extend AXIS with additional endpoints, fields, or constraints, provided the base contract remains unchanged. Implementations SHOULD document extensions.
 
+**Spec compliance vs. registry conformance.** This document defines the wire-format contract: record shapes, AIT structure, endpoint schemas, verification semantics. Runtime-behavior requirements (authentication mechanism, ownership-scoped authorization, audit logging, retention, key management) are normative for any registry that wants to call itself "AXIS-conformant" and live in a separate document, [Registry Conformance v0.1](https://github.com/MachinesOfDesire/axis-conformance). Spec-compliant + conformance-compliant is the bar for production registries.
+
 ## 14. IANA considerations
 
 The following well-known URIs are defined by this specification:
@@ -794,7 +807,7 @@ AXIS was extracted from a production system and refined through discussion in th
 
 AXIS is in active development. Forward-looking work is planned for future versions; all items are targets, not commitments.
 
-**v0.2 — in design.** `/.well-known/axis-scopes` manifest format, `/.well-known/axis-registry` discovery, `access_policy` extensions, formal `did:axis` method spec, Trust Attestation credentialSubject schema, W3C VC-compatible encoding, cross-system delegation to foreign DIDs, key rotation protocol, algorithm negotiation, client SDK specifications, registrar compliance attestations, operator slug tiering, AXIS Skills Protocol, platform registry discovery, agent rental.
+**v0.2 — in design.** `/.well-known/axis-scopes` manifest format, `/.well-known/axis-registry` discovery, `access_policy` extensions, formal `did:axis` method spec, Trust Attestation credentialSubject schema, W3C VC-compatible encoding, cross-system delegation to foreign DIDs, key rotation protocol, algorithm negotiation, client SDK specifications, registrar compliance attestations, operator slug tiering, AXIS Skills Protocol, platform registry discovery, agent rental, **Evidence Record Types** (signed wire-format records for AI-disclosure receipts, AI-decision notification ledger entries, human-oversight assertions, and Fundamental Rights Impact Assessment attestations — sized for EU AI Act Art. 50, Art. 14, Art. 26(11), and Art. 27 evidence respectively; see ROADMAP.md for rationale), `dlg` claim in AIT payload, scope-grammar stabilization.
 
 **v0.3 — planned.** Standard common scope vocabulary, Trust Attestation aggregation and scoring, agent notification protocol, delegation credential constraint enhancements.
 
