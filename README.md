@@ -162,4 +162,4 @@ To report a security issue, see [SECURITY.md](./SECURITY.md).
 
 Licensed under the Apache License, Version 2.0. See [LICENSE](./LICENSE) for the full text.
 
-© 2026 Josh Ashcroft. "AXIS" and "AXIS Prime" are pending trademarks. Use of the names for compatible implementations is permitted; see [CONTRIBUTING.md](./CONTRIBUTING.md) for guidance.
+© 2026 Kipple Labs, Inc. "AXIS," "AXIS Protocol," "AXIS Prime," "N7," and "Kipple Labs" are pending trademarks of Kipple Labs, Inc. Use of the names for compatible implementations is permitted; see [CONTRIBUTING.md](./CONTRIBUTING.md) for guidance.
