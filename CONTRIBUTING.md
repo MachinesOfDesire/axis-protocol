@@ -12,7 +12,7 @@ We ask contributors to sign a Contributor License Agreement (CLA) before submitt
 
 By submitting a pull request or other contribution to this repository, you agree to the following terms:
 
-1. **You grant us a license.** You grant the AXIS project maintainer (currently Josh Ashcroft) and any future foundation or successor organization that inherits stewardship of the AXIS protocol a perpetual, worldwide, non-exclusive, royalty-free, irrevocable license to use, reproduce, modify, distribute, and sublicense your contribution as part of the AXIS protocol, under the Apache 2.0 license or any future license the project adopts.
+1. **You grant us a license.** You grant Kipple Labs, Inc. (current owner of the AXIS Protocol) and any future foundation or successor organization that inherits stewardship of the AXIS protocol a perpetual, worldwide, non-exclusive, royalty-free, irrevocable license to use, reproduce, modify, distribute, and sublicense your contribution as part of the AXIS protocol, under the Apache 2.0 license or any future license the project adopts.
 
 2. **You retain your copyright.** Signing this CLA does not transfer ownership of your contribution. You keep your copyright. We just need the right to use it.
 

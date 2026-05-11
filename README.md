@@ -1,7 +1,6 @@
 # AXIS — Agent Cross-system Identity Standard
 
 **Version:** 0.1.1
-**Author:** Josh Ashcroft
 **License:** Apache 2.0
 **Reference implementation:** [AXIS Prime](https://axisprime.ai)
 **Status:** Public release. Breaking changes possible before v1.0; see [CHANGELOG.md](./CHANGELOG.md) for the versioning policy.
@@ -124,7 +123,7 @@ A reference implementation exists (see below). Other implementations are welcome
 
 ## Governance
 
-The protocol is currently stewarded by its author. Once adoption is sufficient to justify it, stewardship will transition to an independent nonprofit foundation. The open source licensing and Contributor License Agreement (see [CONTRIBUTING.md](./CONTRIBUTING.md)) were designed from day one to make this transition legally and technically possible.
+The AXIS Protocol specification is owned by Kipple Labs, Inc. and published under Apache 2.0. The protocol is currently maintained by Kipple Labs. At a future date when adoption justifies it, day-to-day maintenance and governance may be delegated to an independent nonprofit foundation, with Kipple Labs retaining ownership of the specification and trademarks. The open source licensing and Contributor License Agreement (see [CONTRIBUTING.md](./CONTRIBUTING.md)) were designed to make this transition legally and technically possible.
 
 ## Relationship to existing standards
 
@@ -162,4 +161,4 @@ To report a security issue, see [SECURITY.md](./SECURITY.md).
 
 Licensed under the Apache License, Version 2.0. See [LICENSE](./LICENSE) for the full text.
 
-© 2026 Josh Ashcroft. "AXIS" and "AXIS Prime" are pending trademarks. Use of the names for compatible implementations is permitted; see [CONTRIBUTING.md](./CONTRIBUTING.md) for guidance.
+© 2026 Kipple Labs, Inc. "AXIS," "AXIS Protocol," "AXIS Prime," "N7," and "Kipple Labs" are pending trademarks of Kipple Labs, Inc. Use of the names for compatible implementations is permitted; see [CONTRIBUTING.md](./CONTRIBUTING.md) for guidance.
