@@ -6,6 +6,44 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 **Versioning policy.** Pre-v1.0 releases (all 0.x versions) may contain breaking changes between minor versions. v1.0 will freeze the stable contract under stricter discipline: patch releases additive only, minor releases may add optional fields or endpoints, major releases may break backward compatibility only with explicit governance approval. Track this file closely until v1.0.
 
+## [0.2.0] — 2026-05-10
+
+Minor release. Six wire-format additions and one clarification. Five additions are backward-compatible (additive optional fields, additive endpoint fields, additive DID alias). One — required `aud` claim on AITs — is a behavioral change for verifiers: v0.1 verifiers continue accepting tokens without `aud`; v0.2 verifiers MUST reject. Issuers SHOULD set `aud` on all new tokens immediately; the change closes the cross-platform AIT replay class.
+
+### Added
+
+- **§4.3 AIT — required `aud` claim.** Verifiers MUST reject AITs whose `aud` does not match their advertised `audience` (see §7). Closes cross-platform replay: a token minted for platform A cannot be presented to platform B. Backward-compatibility behavior documented inline.
+- **§4.3 AIT — optional `dlg` claim.** Carries the `credential_id` of a Delegation Credential the agent is acting under. Verifiers resolve the chain via `GET /delegations/:id` and use the chain's effective scope for authorization. Forward-compatible by design: `dlg` is a reference to a record, not a copy of one, so future delegation envelope evolution (multi-signature, etc.) does not require changing the AIT claim shape.
+- **§4.4 DC — formal scope grammar.** Scopes are colon-separated `[a-zA-Z0-9_-]+` segments; wildcard `*` matches exactly one segment; verifiers intersect across the chain per the same rules. Vocabulary remains platform-defined (deferred to v0.3).
+- **§4.1 AIR — operator-namespaced DIDs.** v0.2 canonical DID shape is `did:axis:{registry}:{operator-slug}:{agent-slug}`. v0.1 forms remain resolvable; registries SHOULD return both forms during the transition window. Closes the global-DID-namespace squatting class. Backfill is mechanical (a single SQL UPDATE on existing records).
+- **§6.1 POST /register — `proof.proofType` field.** New value `"jcs-eddsa-2026"` selects RFC 8785 JCS canonicalization for the proof body. Closes the v0.1 nested-key canonicalization fragility (the legacy `JSON.stringify(body, Object.keys(body).sort())` filtered keys at every nesting level rather than recursively sorting). Legacy form remains accepted for v0.1 registrants and is removed in v1.0. Registries SHOULD verify JCS first and fall back to legacy.
+- **§7 `/.well-known/axis-access` — required `audience` field.** Each platform that consumes AITs MUST advertise its stable audience identifier so issuers can populate `aud` correctly.
+
+### Changed
+
+- **§17 Roadmap.** v0.2 list moved from "in design" to "shipped." v0.3 list expanded to receive the deferrals (formal `did:axis` method spec, W3C VC encoding, scope vocabulary, key rotation, algorithm negotiation, Evidence Record Types, and others). Removal of legacy proof canonicalization and v0.1 DID-form deprecation are tracked v0.3 → v1.0 items.
+- **§7 access policy `v0.2 candidates` → `v0.3 candidates`.** `blocked_operators`, `approved_operators`, `rate_limits` deferred to v0.3.
+
+### Migration notes (0.1.x → 0.2.0)
+
+| Concern | Action |
+|---|---|
+| AIT issuers | Set `aud` on every new token to match the target platform's advertised `audience`. Reference SDK does this when the caller passes `aud` in the claims object. |
+| AIT verifiers (v0.2-conformant) | Read `audience` from `/.well-known/axis-access`; reject tokens whose `aud` does not match. Reference SDK 0.2.2 supports this via the `audience` opt on `verifyAITLocally`. |
+| Registries | Add `audience` to the platform's `/.well-known/axis-access` response. Begin returning the v0.2 DID form on new registrations; backfill v0.2 forms for existing rows (single SQL UPDATE; no operator action required). Accept both proof types on `/register`, prefer JCS. |
+| SDKs | Implement JCS canonicalization. The reference JS SDK constraint is hand-rolled, zero-dependency. |
+| Reference apps consuming AITs | Verify `aud`. Configure the platform's `audience` identifier (recommended convention: `<service>.<domain>`). |
+
+### Compliance window
+
+Registries MUST accept v0.2 DID resolution within 60 days of v0.2 publication. v0.1 DID forms remain resolvable indefinitely; the v0.3 spec will narrow them to resolve-only.
+
+### Not changed
+
+No changes to: AIT signing algorithm (still Ed25519 only), JWT envelope shape (still header.payload.signature), agent record structure (other than `did` shape and the new claims), delegation envelope, revocation mechanism, endpoint paths.
+
+A v0.1.1-compliant consumer reads a v0.2 record without modification — they will not parse the new `dlg` or `aud` claims, will not enforce `aud`, and will see the v0.1 DID form returned alongside the v0.2 form.
+
 ## [0.1.1] — 2026-04-24
 
 Patch release. Clarifications and corrections only; no new wire fields, no behavior changes for v0.1.0-conformant implementations.

@@ -1,6 +1,6 @@
 # AXIS — Agent Cross-system Identity Standard
 
-**Version:** 0.1.1
+**Version:** 0.2.0
 **License:** Apache 2.0
 **Reference implementation:** [AXIS Prime](https://axisprime.ai)
 **Status:** Public release. Breaking changes possible before v1.0; see [CHANGELOG.md](./CHANGELOG.md) for the versioning policy.

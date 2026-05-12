@@ -1,15 +1,15 @@
 # AXIS Protocol Specification
 
-**Version:** 0.1.1
-**Status:** Public release. This is the canonical AXIS Protocol v0.1 specification (patch level 0.1.1). Breaking changes are possible before v1.0; see §17 Roadmap and `CHANGELOG.md` for the versioning policy.
+**Version:** 0.2.0
+**Status:** Public release. This is the canonical AXIS Protocol v0.2 specification. Breaking changes are possible before v1.0; see §17 Roadmap and `CHANGELOG.md` for the versioning policy.
 **Author:** Josh Ashcroft
 **License:** Apache 2.0
 **Repository:** https://github.com/MachinesOfDesire/axis-protocol
-**Last updated:** 2026-04-24
+**Last updated:** 2026-05-10
 
 ## Abstract
 
-AXIS (Agent Cross-system Identity Standard) is a protocol for autonomous AI agent identity, delegation, and authorization across operator boundaries. This document specifies the protocol's data model, API contract, verification procedures, and conformance criteria for v0.1.
+AXIS (Agent Cross-system Identity Standard) is a protocol for autonomous AI agent identity, delegation, and authorization across operator boundaries. This document specifies the protocol's data model, API contract, verification procedures, and conformance criteria for v0.2. v0.2 is additive over v0.1.1 with one behavioral change: the `aud` claim on AITs is now REQUIRED (see §4.3); v0.1 verifiers continue to accept tokens without `aud`, v0.2 verifiers MUST reject. All other v0.2 changes are backward-compatible.
 
 AXIS addresses the agent accountability problem: when an autonomous AI agent takes a consequential action, third parties — receiving platforms, auditors, courts, regulators — must be able to verify who authorized that action, what scope they authorized, and whether that authority is still in force. Today's identity tooling does not produce the evidence regulatory frameworks and live incidents demand. AXIS provides that evidence as a first-class protocol artifact: a cryptographically signed, self-contained credential chain that any third party can verify locally, without prior relationship to the agent's operator.
 
@@ -83,9 +83,9 @@ All records are JSON. Field names are lowercase with underscores. Timestamps are
 
 ```json
 {
-  "axis_version": "0.1",
+  "axis_version": "0.2",
   "agent_id": "axis:widget-corp:editor",
-  "did": "did:axis:prime:editor",
+  "did": "did:axis:prime:widget-corp:editor",
   "operator_id": "widget-corp",
   "public_key": "lDwxSH896YH5IlqxAHaZmKFAI-32qIiLBTdTPOcTVCE",
   "key_algorithm": "Ed25519",
@@ -110,7 +110,7 @@ All records are JSON. Field names are lowercase with underscores. Timestamps are
 
 Optional fields enable presentation-layer functionality (display name, purpose, capability signals) and interoperability with W3C DID tooling. They are not required for cryptographic verification — a minimal AIR with only the required fields above is sufficient for the core verification procedure in §8.
 
-- `did` (string) — W3C DID form, typically `did:axis:{registry}:{agent-slug}`
+- `did` (string) — W3C DID form. v0.2 canonical shape is `did:axis:{registry}:{operator-slug}:{agent-slug}` (operator-namespaced; see §9 for the v0.2 change). v0.1 form `did:axis:{registry}:{agent-slug}` remains resolvable; registries SHOULD return both forms during the transition window. Registries MUST return the v0.2 form for newly-registered agents.
 - `display_name` (string) — human-readable name
 - `platform` (string) — agent runtime identifier
 - `purpose` (string) — plain-language description of the agent's function
@@ -165,11 +165,13 @@ The AIT is a JWT per [RFC 7519], signed using EdDSA per [RFC 8037].
 {
   "iss": "axis:widget-corp:editor",
   "sub": "axis:widget-corp:editor",
+  "aud": "ghost.example.com",
   "iat": 1743292800,
   "exp": 1743379200,
-  "axis_version": "0.1",
+  "axis_version": "0.2",
   "operator_id": "widget-corp",
-  "registry_url": "https://registry.axisprime.ai/agents/axis:widget-corp:editor"
+  "registry_url": "https://registry.axisprime.ai/agents/axis:widget-corp:editor",
+  "dlg": "dc:widget-corp:editor-2026-04"
 }
 ```
 
@@ -177,11 +179,16 @@ The AIT is a JWT per [RFC 7519], signed using EdDSA per [RFC 8037].
 
 - `iss` — issuer (the agent's AXIS ID)
 - `sub` — subject (same as issuer for AITs)
+- `aud` — **(REQUIRED in v0.2)** the platform identifier the token is intended for. Verifiers MUST reject tokens whose `aud` does not match their own identifier (advertised in `/.well-known/axis-access` under `audience`; see §6.12). The `aud` requirement closes the cross-platform replay class: a token minted for platform A cannot be presented to platform B. v0.1 verifiers continue to accept tokens without `aud` for backward compatibility; v0.2 verifiers MUST reject.
 - `iat` — issued at (Unix timestamp)
 - `exp` — expiration (Unix timestamp)
 - `axis_version` — protocol version
 - `operator_id` — the agent's operator
 - `registry_url` — URL where the agent's AIR can be resolved
+
+**Optional claims:**
+
+- `dlg` (string) — `credential_id` of a Delegation Credential the agent is acting under. Verifiers resolve the chain (see §6.9, `GET /delegations/:id`) and use the chain's effective scope for authorization. Absent means no specific delegation is claimed; the agent is asserting its own native scope. Pointing at a record by ID rather than embedding the credential keeps the claim shape stable as the delegation envelope evolves; v0.3+ multi-signature delegation can ship without changing the `dlg` shape.
 
 Signed with the agent's private key. Verifiers resolve `registry_url` to retrieve the public key and verify the signature.
 
@@ -210,7 +217,7 @@ Signed with the agent's private key. Verifiers resolve `registry_url` to retriev
   "proof": {
     "type": "Ed25519Signature2020",
     "created": "2026-04-01T00:00:00Z",
-    "verificationMethod": "did:axis:prime:editor#key-1",
+    "verificationMethod": "did:axis:prime:widget-corp:editor#key-1",
     "proofPurpose": "assertionMethod",
     "proofValue": "<Ed25519 signature, base64url>"
   }
@@ -237,7 +244,9 @@ Signed with the agent's private key. Verifiers resolve `registry_url` to retriev
 - `revocable` (boolean) — whether the credential can be revoked before expiry. Default `true`.
 - `revocation_url` (string) — where to check revocation status for this specific credential
 
-**The attenuation rule (MUST).** The `scope` of a DC MUST be equal to or a subset of the `scope` of its `parent_credential_id`. Verifiers MUST reject any DC where the delegate's scope exceeds the delegator's scope.
+**Scope grammar (v0.2).** Scopes are colon-separated strings where each segment is an ASCII word matching `[a-zA-Z0-9_-]+`. Examples: `read:articles`, `write:drafts`, `admin:users`. A scope `granted` matches a scope `requested` if, segment-by-segment, each `granted` segment is identical to the corresponding `requested` segment, OR the `granted` segment is the literal wildcard `*`. The wildcard matches exactly one segment, not multiple: `admin:*` covers `admin:users` and `admin:roles` but does NOT cover `admin:users:delete`. Verifiers computing effective scope across a delegation chain MUST intersect per the same matching rules. Vocabulary (the meaning of specific scope strings such as `content:comment`) is NOT standardized in v0.2; each platform defines its own vocabulary and advertises the strings it requires in `/.well-known/axis-access` under `required_scopes`. Vocabulary standardization is deferred to v0.3.
+
+**The attenuation rule (MUST).** The `scope` of a DC MUST be equal to or a subset of the `scope` of its `parent_credential_id` per the matching rules above. Verifiers MUST reject any DC where the delegate's scope exceeds the delegator's scope.
 
 **The root-operator invariant (MUST).** The `root_operator` field MUST be byte-for-byte identical across every credential in a chain. Verifiers MUST reject any chain where intermediate credentials assert a different `root_operator`. This prevents chain-rerooting attacks.
 
@@ -385,6 +394,10 @@ Request body:
   "metadata": {
     "name": "editor",
     "description": "Editorial director."
+  },
+  "proof": {
+    "proofType": "jcs-eddsa-2026",
+    "proofValue": "<Ed25519 signature over JCS-canonicalized request body, base64url>"
   }
 }
 ```
@@ -393,12 +406,19 @@ Response (201):
 ```json
 {
   "axis_id": "axis:example-xyz:editor",
-  "did": "did:axis:prime:editor",
+  "did": "did:axis:prime:example-xyz:editor",
   "token": "<signed AIT JWT>",
   "registry_url": "https://registry.axisprime.ai/agents/axis:example-xyz:editor",
   "revocation_url": "https://registry.axisprime.ai/revocation/axis:example-xyz:editor"
 }
 ```
+
+**Proof of key ownership (v0.2).** The optional `proof` field demonstrates the registrant controls the private key matching `public_key`. Two proof types are recognized:
+
+- `proofType: "jcs-eddsa-2026"` (v0.2, RECOMMENDED) — the request body MINUS the `proof` field is canonicalized per [RFC 8785 JCS](https://datatracker.ietf.org/doc/html/rfc8785), and `proofValue` is the base64url Ed25519 signature over the canonical bytes. Closes the proof-canonicalization fragility in v0.1, where nested object keys were not deterministically ordered. JCS canonicalization is the v0.2 default for all signed canonical bodies in the protocol (registration proof, delegation envelope, action envelope).
+- `proofType` absent — legacy v0.1 canonicalization (`JSON.stringify(body, Object.keys(body).sort())`). Registries SHOULD verify JCS-signed proofs first and fall back to the legacy form when JCS verification fails. Legacy canonicalization is deprecated in v0.2 and will be removed in v1.0.
+
+Registries MUST verify the proof when present. Registries MAY require proof for new registrations; the canonical reference implementation requires it.
 
 ### 6.2 `GET /agents/:agent_id`
 
@@ -488,31 +508,33 @@ Registry self-identification manifest. See [ROADMAP.md].
 
 ## 7. Platform-side access control
 
-Every receiving platform accepting agent interactions SHOULD publish its access requirements at `/.well-known/axis-access`.
+Every receiving platform accepting agent interactions SHOULD publish its access requirements at `/.well-known/axis-access`. v0.2 introduces a REQUIRED `audience` field that platforms publish so issuers can populate the `aud` claim on AITs intended for that platform (see §4.3).
 
 Response:
 ```json
 {
-  "axis_version": "0.1",
+  "axis_version": "0.2",
   "platform_id": "ghost.example.com",
+  "audience": "ghost.example.com",
   "access_policy": {
     "minimum_verification_level": "domain",
     "required_scopes": ["content:comment"],
     "allow_unverified": false,
     "registration_url": "https://signup.axisprime.ai/signup"
   },
-  "updated_at": "2026-04-13T00:00:00Z"
+  "updated_at": "2026-05-10T00:00:00Z"
 }
 ```
 
 **Fields:**
 
+- `audience` — **(REQUIRED in v0.2)** the platform's stable audience identifier. AIT issuers populate the `aud` claim with this value when minting tokens intended for this platform; verifiers reject tokens whose `aud` does not match. The identifier MUST be a non-empty string and MUST be stable across the platform's lifetime. Convention is subdomain-shaped (`<service>.<domain>`) but the format is not normative; any stable string works.
 - `minimum_verification_level` — lowest operator verification tier accepted
 - `required_scopes` — scopes the agent must hold
 - `allow_unverified` — boolean. If `true`, requests without an AIT are accepted (the platform chooses whether to treat them as verified or as anonymous traffic). If `false`, requests without an AIT are rejected.
 - `registration_url` — where to direct unregistered agents or operators who don't meet the minimum tier
 
-**v0.2 candidates:** `blocked_operators`, `approved_operators`, `rate_limits`.
+**v0.3 candidates:** `blocked_operators`, `approved_operators`, `rate_limits`.
 
 **Design rationale.** The protocol defines how platforms *communicate* policy. Enforcement is the platform's responsibility. AXIS provides identity and trust signals; platforms make their own decisions.
 
@@ -663,11 +685,12 @@ AXIS does NOT solve: encryption at rest (164.312(a)(2)(iv)), transmission securi
 
 AXIS agent IDs are compatible with W3C Decentralized Identifiers. The `did:axis` method:
 
-- **Identifier syntax:** `did:axis:{registry-slug}:{agent-slug}` (e.g. `did:axis:prime:editor`)
+- **Identifier syntax (v0.2 canonical):** `did:axis:{registry-slug}:{operator-slug}:{agent-slug}` (e.g. `did:axis:prime:widget-corp:editor`). The operator namespace prevents global slug squatting in the registry's DID space.
+- **Identifier syntax (v0.1 legacy):** `did:axis:{registry-slug}:{agent-slug}` (e.g. `did:axis:prime:editor`). Remains resolvable; registries SHOULD return both forms in agent records during the transition window. After v0.3, v0.1 DID forms become resolve-only and new registrations only accept v0.2.
 - **DID Document:** derived from the Agent Identity Record, exposing `publicKey`, `authentication`, and `service` endpoints
-- **Resolution:** via the agent's `registry_url` using the `GET /resolve/:did` endpoint
+- **Resolution:** via the agent's `registry_url` using the `GET /resolve/:did` endpoint. Resolvers MUST accept both v0.1 and v0.2 DID forms.
 
-Formal `did:axis` method specification planned for v0.2.
+Formal `did:axis` method specification planned for v0.3.
 
 ### 10.4 Compliance posture
 
@@ -807,9 +830,9 @@ AXIS was extracted from a production system and refined through discussion in th
 
 AXIS is in active development. Forward-looking work is planned for future versions; all items are targets, not commitments.
 
-**v0.2 — in design.** `/.well-known/axis-scopes` manifest format, `/.well-known/axis-registry` discovery, `access_policy` extensions, formal `did:axis` method spec, Trust Attestation credentialSubject schema, W3C VC-compatible encoding, cross-system delegation to foreign DIDs, key rotation protocol, algorithm negotiation, client SDK specifications, registrar compliance attestations, operator slug tiering, AXIS Skills Protocol, platform registry discovery, agent rental, **Evidence Record Types** (signed wire-format records for AI-disclosure receipts, AI-decision notification ledger entries, human-oversight assertions, and Fundamental Rights Impact Assessment attestations — sized for EU AI Act Art. 50, Art. 14, Art. 26(11), and Art. 27 evidence respectively; see ROADMAP.md for rationale), `dlg` claim in AIT payload, scope-grammar stabilization.
+**v0.2 — shipped.** `dlg` claim in AIT payload (§4.3); REQUIRED `aud` claim with `audience` advertisement in `/.well-known/axis-access` (§4.3, §7); scope grammar stabilization (§4.4); operator-namespaced DIDs `did:axis:{registry}:{operator}:{agent}` (§4.1, §10.3); RFC 8785 JCS canonicalization for proof bodies with `proofType` field (§6.1); presentation-layer unlock clarification (§5.2; landed in v0.1.1); `service_endpoints` documented in public layer (§5.1; landed in v0.1.1); reference to Registry Conformance v0.1 (§13).
 
-**v0.3 — planned.** Standard common scope vocabulary, Trust Attestation aggregation and scoring, agent notification protocol, delegation credential constraint enhancements.
+**v0.3 — planned.** Standard common scope vocabulary, Trust Attestation aggregation and scoring, agent notification protocol, delegation credential constraint enhancements, formal `did:axis` method specification, W3C VC-compatible encoding, key rotation protocol, algorithm negotiation, **Evidence Record Types** (signed wire-format records for AI-disclosure receipts, AI-decision notification ledger entries, human-oversight assertions, and Fundamental Rights Impact Assessment attestations — sized for EU AI Act Art. 50, Art. 14, Art. 26(11), and Art. 27 evidence respectively; see ROADMAP.md for rationale), `/.well-known/axis-scopes` manifest format, `/.well-known/axis-registry` discovery, `access_policy` extensions (`blocked_operators`, `approved_operators`, `rate_limits`), client SDK specifications, registrar compliance attestations, AXIS Skills Protocol, platform registry discovery, agent rental, deprecation of v0.1 DID forms (resolve-only), removal of legacy proof canonicalization.
 
 **v1.0 — stability target.** Non-breaking-change threshold. Data-model and API-contract surfaces stable under semantic versioning. Pre-v1.0 releases may contain breaking changes between minor versions; implementers should track `CHANGELOG.md` closely.
 
