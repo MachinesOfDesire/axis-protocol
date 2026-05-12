@@ -110,7 +110,7 @@ Keep PRs focused. One conceptual change per PR. If you're also fixing typos, put
 
 ## Review process
 
-PRs are reviewed by the current maintainer (Josh Ashcroft) during the pre-foundation period. Review SLA is best-effort; there are no guaranteed response times during v0.x.
+PRs are reviewed by the AXIS Protocol maintainers at Kipple Labs, Inc. during the pre-foundation period. Review SLA is best-effort; there are no guaranteed response times during v0.x.
 
 Once a foundation is formed, review will transition to the foundation's governance structure (expected v0.2 or v0.3 timeframe).
 
