@@ -6,6 +6,47 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 **Versioning policy.** Pre-v1.0 releases (all 0.x versions) may contain breaking changes between minor versions. v1.0 will freeze the stable contract under stricter discipline: patch releases additive only, minor releases may add optional fields or endpoints, major releases may break backward compatibility only with explicit governance approval. Track this file closely until v1.0.
 
+## [0.3.0] — 2026-06-14
+
+Minor release. Additive over v0.2. v0.3 introduces sender-constrained AITs, ephemeral within-runtime sub-agent delegates, a standard scope vocabulary over the v0.2 grammar, a CA-trust registry-legitimacy model, the scope-discovery manifest, an optional inline challenge-on-refusal response, and the formal `did:axis` method. Every v0.3 mechanism degrades gracefully against v0.2: a v0.3 AIT presented to a v0.2 verifier is treated as a bearer token; v0.2 DCs and AITs remain valid. The single behavioral change is that a v0.3 verifier advertising `proof_of_possession: "required"` MUST reject a v0.2 (bearer-only) AIT.
+
+### Added
+
+- **§4.3.1 AIT — sender-constrained AITs (proof of possession).** New `cnf.jkt` confirmation claim (RFC 7638 JWK thumbprint of the agent's existing key) and a per-request DPoP proof header (RFC 9449), bound to the AIT via `ath`. Closes the same-platform leaked-AIT replay class that the v0.2 `aud` claim did not cover. Includes a `jti × jkt` replay cache (fail-closed), a 60-second default freshness window (120-second ceiling), permitted-not-required DPoP server-nonce mode, and an OPTIONAL RFC 9421 HTTP Message Signature profile (canonical AXIS component set, RFC 9530 Content-Digest) for high-stakes scopes. Deployment-configurable opt-out via `proof_of_possession`.
+- **§4.4.1 / Appendix B — standard scope vocabulary.** A two-layer namespace over the v0.2 grammar: standard scopes (closed enum across reserved domains `content`, `social`, `commerce`, `data`, `comms`, `account`, `scheduling`, `compute`) carry no prefix; custom scopes MUST be prefixed `x-<vendor>:`. Domain wildcards (e.g. `content:*`) are NOT grantable standard scopes — the single-segment `*` stays a matching/attenuation grammar feature only — and unprefixed non-standard scopes are invalid. Seeded W3C-vocabulary-first (ActivityStreams 2.0, schema.org Actions, ODRL).
+- **§4.4.2 DC — ephemeral sub-agent delegates.** New ephemeral `issued_to` form `axis:{operator}:{agent}:sub:{task-id}` with REQUIRED `issued_to_public_key` and OPTIONAL `task_spec_hash`. A task-bound delegate that is self-proving via the DC chain, never written to the registry, authenticated through the parent's AIT (`dlg` → ephemeral DC id). All v0.2 invariants (attenuation, root-operator, expiry, scope-subset) apply unchanged.
+- **§6.13 `/.well-known/axis-registry` — registry self-manifest.** Replaces the v0.2 stub. Each registry publishes its signing-key set and an Ed25519 self-signature; rotation is expressed via overlapping key validity windows.
+- **§6.14 `/.well-known/axis-scopes` — scope vocabulary discovery.** Publishes the scopes a platform recognizes, each flagged `standard` with a description; custom scopes MAY include `maps_to` a standard scope.
+- **§6.15 `/.well-known/axis-directory` — root registrar directory.** AXIS Prime publishes a signed directory of certified registrars (monotonic `directory_version`, `expires_at`, per-registrar key fingerprints), signed by the pinned Prime root key.
+- **§8 Step 1 — registry-legitimacy verification.** Before trusting any record from a declared `registry_url`, a v0.3 verifier verifies the registry manifest's self-signature, verifies the root directory against the pinned Prime root key (rejecting expired or rolled-back directories), and confirms the registry is listed `certified` with a matching key fingerprint. Fail-closed. Closes the registry-impersonation class (§11.6).
+- **§8 Step 1.8 / Step 4.5 — verification additions.** DPoP proof-of-possession verification; ephemeral-delegate chain-walk branch; message-signature verification for scopes a platform marks `requires_message_signature`.
+- **§7 — access-policy extensions.** `proof_of_possession`, `requires_message_signature`, and the v0.3 `blocked_operators` / `approved_operators` / `rate_limits` fields.
+- **§7.1 — inline challenge-on-refusal (OPTIONAL).** Structured 401/403 body (`axis_error`, `message`, `action`, `required`/`current`, `remedy`, `audience`, optional `challenge` nonce) so gated endpoints can tell an agent exactly what was required and how to obtain it. Strictly an optimization over the pull model; degrades gracefully.
+- **§10.3 — formal `did:axis` method.** Method name, identifier syntax (v0.2 canonical + v0.1 legacy), registry-anchored create/update/deactivate, resolution gated on the registry-legitimacy chain, DID Document derivation, and security/privacy considerations.
+
+### Changed
+
+- **§4.3 / §11.3 Replay attacks.** Documented that v0.3 PoP closes the same-platform replay class the v0.2 `aud` claim left open.
+- **§11.6 Registry impersonation.** Rewritten: v0.3 closes it with the CA-trust legitimacy model and pinned root key (was an open v0.1/v0.2 risk with allowlist-only mitigation).
+- **§11.1 Key management.** Registry signing-key rotation is specified (manifest `keys` windows); agent/operator key rotation remains a planned v0.3 deliverable.
+- **§13 Conformance.** Added v0.3 registry criteria (legitimacy manifest, scope namespace, ephemeral acceptance) and the v0.3 verifier criteria (legitimacy check, DPoP enforcement).
+- **§14 IANA.** `/.well-known/axis-scopes` and `/.well-known/axis-registry` reclassified to v0.3; `/.well-known/axis-directory` added.
+- **§17 Roadmap.** v0.3 shipped items moved into "specified in this release." W3C VC encoding and agent/operator key rotation remain planned (designed as roadmap, not specified here). Algorithm agility/negotiation explicitly deferred (no current driver).
+
+### Planned but not specified in this release
+
+- **W3C VC-compatible encoding (deliverable #2).** Optional JSON-LD envelope for AIT/DC/TA alongside the canonical JWT form, with a lossless round-trip mapping and Ed25519 proof-suite alignment. Problem statement and open questions are tracked; the full design is not yet in this spec.
+- **Agent/operator key rotation (deliverable #4).** Multi-key AIR with validity windows and/or signed rotation records, including reconciliation with the `cnf.jkt` PoP binding. Tracked; not yet specified.
+
+### Resolved open vocabulary questions (per shipped registry behavior)
+
+- Domain wildcards (`content:*`) are NOT grantable standard scopes — the standard vocabulary is a closed enum; the single-segment `*` stays a matching/attenuation grammar feature only.
+- Custom scopes MUST carry the `x-<vendor>:` prefix; unprefixed non-standard scopes are invalid.
+
+### Not changed
+
+No changes to: AIT signing algorithm (still Ed25519 only), JWT envelope shape, AIR/DC record structure other than the additive fields above, the revocation mechanism, or v0.1/v0.2 endpoint paths. A v0.2-conformant consumer reads a v0.3 record without modification (it ignores `cnf`, `issued_to_public_key`, and the new well-known docs).
+
 ## [0.2.0] — 2026-05-10
 
 Minor release. Six wire-format additions and one clarification. Five additions are backward-compatible (additive optional fields, additive endpoint fields, additive DID alias). One — required `aud` claim on AITs — is a behavioral change for verifiers: v0.1 verifiers continue accepting tokens without `aud`; v0.2 verifiers MUST reject. Issuers SHOULD set `aud` on all new tokens immediately; the change closes the cross-platform AIT replay class.
