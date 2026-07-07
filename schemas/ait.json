@@ -12,7 +12,7 @@
       "properties": {
         "alg": {
           "type": "string",
-          "description": "Signature algorithm. MUST be 'EdDSA' for v0.1.",
+          "description": "Signature algorithm. MUST be 'EdDSA'.",
           "const": "EdDSA"
         },
         "typ": {
@@ -30,7 +30,7 @@
     },
     "payload": {
       "type": "object",
-      "required": ["iss", "sub", "iat", "exp", "axis_version", "operator_id", "registry_url"],
+      "required": ["iss", "iat", "exp", "aud"],
       "properties": {
         "iss": {
           "type": "string",
@@ -39,8 +39,13 @@
         },
         "sub": {
           "type": "string",
-          "description": "Subject. For AITs, MUST equal iss.",
+          "description": "Subject. OPTIONAL; when present, MUST equal iss.",
           "pattern": "^axis:[a-z0-9][a-z0-9-]*(?:\\.[a-z0-9][a-z0-9-]*)*:[a-z0-9][a-z0-9-]*$"
+        },
+        "aud": {
+          "type": "string",
+          "description": "Audience: the target platform's stable audience identifier (advertised in its /.well-known/axis-access). REQUIRED since v0.2; verifiers reject tokens whose aud does not match their own identifier.",
+          "minLength": 1
         },
         "iat": {
           "type": "integer",
@@ -49,24 +54,49 @@
         },
         "exp": {
           "type": "integer",
-          "description": "Expiration timestamp (Unix seconds). SHOULD be within 24 hours of iat.",
+          "description": "Expiration timestamp (Unix seconds). SHOULD be within 24 hours of iat; production verifiers may enforce much shorter ceilings.",
           "minimum": 0
         },
-        "axis_version": {
+        "jti": {
           "type": "string",
-          "const": "0.1"
+          "description": "Unique token identifier. RECOMMENDED; platforms MAY enforce single-use per SPEC.md §11.3 (the reference platforms require it).",
+          "minLength": 1
+        },
+        "dlg": {
+          "type": "string",
+          "description": "credential_id of the Delegation Credential the agent is acting under (SPEC.md §4.3). Verifiers resolve the chain via GET /delegations/:id/chain.",
+          "minLength": 1
         },
         "operator_id": {
           "type": "string",
+          "description": "ADVISORY: the agent's operator. Verifiers treat the registry's agent record as authoritative; issuers MAY omit.",
           "pattern": "^[a-z0-9][a-z0-9-]*(?:\\.[a-z0-9][a-z0-9-]*)*$"
         },
         "registry_url": {
           "type": "string",
           "format": "uri",
-          "description": "URL where the agent's AIR can be resolved."
+          "description": "ADVISORY: URL where the agent's AIR can be resolved. Subject to the registry-legitimacy check (SPEC.md §8 Step 1)."
+        },
+        "axis_version": {
+          "type": "string",
+          "description": "Protocol version signaling (SPEC.md §4.3.2). Specified for v0.4, not yet emitted by shipped issuers; verifiers MUST NOT reject solely on its absence.",
+          "pattern": "^\\d+\\.\\d+(?:\\.\\d+)?$"
+        },
+        "cnf": {
+          "type": "object",
+          "description": "Proof-of-possession confirmation (SPEC.md §4.3.1, v0.3; specified, not yet shipped).",
+          "required": ["jkt"],
+          "properties": {
+            "jkt": {
+              "type": "string",
+              "description": "base64url SHA-256 JWK thumbprint (RFC 7638) of the agent's public key.",
+              "minLength": 1
+            }
+          },
+          "additionalProperties": false
         }
       },
-      "additionalProperties": false
+      "additionalProperties": true
     }
   },
   "additionalProperties": false
