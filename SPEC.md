@@ -1,11 +1,11 @@
 # AXIS Protocol Specification
 
-**Version:** 0.3.0
-**Status:** Public release. This is the canonical AXIS Protocol v0.3 specification. Breaking changes are possible before v1.0; see §17 Roadmap and `CHANGELOG.md` for the versioning policy.
+**Version:** 0.3.1
+**Status:** Public release. This is the canonical AXIS Protocol v0.3 specification. Breaking changes are possible before v1.0; see §17 Roadmap and `CHANGELOG.md` for the versioning policy. Version-mismatch handling guidance for implementers lives in [COMPATIBILITY.md](./COMPATIBILITY.md).
 **Author:** Josh Ashcroft
 **License:** Apache 2.0
 **Repository:** https://github.com/MachinesOfDesire/axis-protocol
-**Last updated:** 2026-06-14
+**Last updated:** 2026-07-07
 
 ## Abstract
 
@@ -164,13 +164,10 @@ The AIT is a JWT per [RFC 7519], signed using EdDSA per [RFC 8037].
 ```json
 {
   "iss": "axis:widget-corp:editor",
-  "sub": "axis:widget-corp:editor",
   "aud": "ghost.example.com",
   "iat": 1743292800,
   "exp": 1743379200,
-  "axis_version": "0.2",
-  "operator_id": "widget-corp",
-  "registry_url": "https://registry.axisprime.ai/agents/axis:widget-corp:editor",
+  "jti": "8f3a1c2e-9b47-4d15-a02b-6c1e5f88d2a1",
   "dlg": "dc:widget-corp:editor-2026-04"
 }
 ```
@@ -178,21 +175,32 @@ The AIT is a JWT per [RFC 7519], signed using EdDSA per [RFC 8037].
 **Required claims:**
 
 - `iss` — issuer (the agent's AXIS ID)
-- `sub` — subject (same as issuer for AITs)
-- `aud` — **(REQUIRED in v0.2)** the platform identifier the token is intended for. Verifiers MUST reject tokens whose `aud` does not match their own identifier (advertised in `/.well-known/axis-access` under `audience`; see §6.12). The `aud` requirement closes the cross-platform replay class: a token minted for platform A cannot be presented to platform B. v0.1 verifiers continue to accept tokens without `aud` for backward compatibility; v0.2 verifiers MUST reject.
+- `aud` — **(REQUIRED in v0.2)** the platform identifier the token is intended for. Verifiers MUST reject tokens whose `aud` does not match their own identifier (advertised in `/.well-known/axis-access` under `audience`; see §6.12). The reference registry's `/verify` endpoint additionally rejects any AIT whose `aud` is missing or empty (the registry cannot know each platform's audience, so it enforces presence; the value match is the platform's job). The `aud` requirement closes the cross-platform replay class: a token minted for platform A cannot be presented to platform B. v0.1 verifiers continue to accept tokens without `aud` for backward compatibility; v0.2 verifiers MUST reject.
 - `iat` — issued at (Unix timestamp)
 - `exp` — expiration (Unix timestamp)
-- `axis_version` — protocol version
-- `operator_id` — the agent's operator
-- `registry_url` — URL where the agent's AIR can be resolved
 
 **Optional claims:**
 
-- `dlg` (string) — `credential_id` of a Delegation Credential the agent is acting under. Verifiers resolve the chain (see §6.9, `GET /delegations/:id`) and use the chain's effective scope for authorization. Absent means no specific delegation is claimed; the agent is asserting its own native scope. Pointing at a record by ID rather than embedding the credential keeps the claim shape stable as the delegation envelope evolves; v0.3+ multi-signature delegation can ship without changing the `dlg` shape.
+- `sub` — subject. When present, MUST equal `iss` (an AIT always speaks for the agent that signed it). Verifiers accept `iss` alone; the reference registry resolves the agent from `iss`, falling back to `sub`.
+- `jti` — unique token identifier, RECOMMENDED. Platforms MAY treat AITs as single-use by recording consumed `jti` values until `exp` and rejecting re-presentation. The reference platform implementations REQUIRE `jti` and enforce single-use (see §11.3); issuers SHOULD always set it.
+- `dlg` (string) — `credential_id` of a Delegation Credential the agent is acting under. Verifiers resolve the chain (see §6.9.1, `GET /delegations/:id/chain`, which accepts the `dlg` value directly and pins the verdict to that credential) and use the chain's effective scope for authorization. Absent means no specific delegation is claimed; the agent is asserting its own native scope. Pointing at a record by ID rather than embedding the credential keeps the claim shape stable as the delegation envelope evolves; v0.3+ multi-signature delegation can ship without changing the `dlg` shape.
+- `operator_id` — the agent's operator. ADVISORY only: verifiers MUST treat the registry's agent record as authoritative for the operator linkage (the reference registry returns the operator resolved from the AIR, ignoring this claim). Issuers MAY omit it.
+- `registry_url` — URL where the agent's AIR can be resolved. ADVISORY convenience for verifiers that have not yet resolved the agent; subject to the registry-legitimacy check (§8 Step 1) like any self-declared registry pointer.
+- `axis_version` — protocol version signaling. **Specified for v0.4, not yet shipped:** current issuers (including the reference SDK) do not emit this claim, and shipped verifiers do not check it. See §4.3.2.
+- `cnf` — proof-of-possession confirmation (v0.3, §4.3.1). Specified, not yet shipped in the reference implementations.
 
-Signed with the agent's private key. Verifiers resolve `registry_url` to retrieve the public key and verify the signature.
+Signed with the agent's private key. Verifiers resolve the agent's AIR (via `registry_url` when present, otherwise via the agent's declared registry) to retrieve the public key and verify the signature.
 
-**Token lifetime.** AITs SHOULD have a maximum lifetime of 24 hours. Platforms MAY enforce shorter lifetimes. Agents re-mint AITs from their private key as needed.
+**Presentation channels.** An agent presents an AIT to a platform through one of:
+
+1. `X-AXIS-Token: <AIT>` request header — the channel shipped and documented by the reference platform implementations, and the RECOMMENDED default. Keeping the AIT out of `Authorization` leaves that header free for the platform's own operator/user sessions.
+2. `Authorization: Bearer <AIT>` — accepted by the reference platform SDK (checked before `X-AXIS-Token`).
+3. `?ait=<AIT>` query parameter — accepted as a last resort; NOT RECOMMENDED (URLs leak into logs).
+4. `Authorization: DPoP <AIT>` + `DPoP` proof header — the v0.3 sender-constrained form (§4.3.1); specified, not yet shipped.
+
+Platforms SHOULD advertise their accepted channel in `/.well-known/axis-access` (the reference commenting platform does so in its `actions` manifest, §7).
+
+**Token lifetime.** AITs SHOULD have a maximum lifetime of 24 hours. Platforms MAY enforce shorter lifetimes, and production verifiers are encouraged to: the reference SDK mints 5-minute tokens by default, and shipped platform verifiers apply a configurable max-TTL ceiling. Agents re-mint AITs from their private key as needed.
 
 #### 4.3.1 Sender-constrained AITs — `cnf.jkt` and DPoP (v0.3)
 
@@ -248,6 +256,22 @@ When the field is absent, a v0.3 verifier defaults to `"required"`; a v0.2 verif
 
 **Status — design landed; enforcement not yet shipped in the reference registry.** The `cnf.jkt` binding, DPoP verification, and message-signature profile are specified here for v0.3. The reference registry's `/verify` path and `/.well-known/axis-access` still advertise the v0.2 surface (they do not yet emit `proof_of_possession` or enforce DPoP); PoP enforcement is verifier-/platform-side and lands per the migration path in §8 and the CHANGELOG. Backward compatibility: a v0.3 AIT (with `cnf`) presented to a v0.2 verifier degrades to a bearer token (the verifier ignores the unknown claim); a v0.2 AIT (no `cnf`) is rejected only by a v0.3 verifier advertising `proof_of_possession: "required"`.
 
+#### 4.3.2 Protocol version signaling
+
+Where a protocol version appears on the wire, and what each occurrence means:
+
+**Shipped today:**
+
+- **Records** — AIRs, OIRs, and DCs carry `axis_version`: the protocol version whose data model the record conforms to. Registries echo the version a signed DC was minted under; registry-generated records carry the current record-format version (`"0.2"` — AIR/DC record formats have been stable since v0.2; v0.3 added discovery and verification features, not record-format changes).
+- **Discovery documents** — `/.well-known/axis-access`, `/.well-known/axis-scopes`, `/.well-known/axis-registry`, and `/.well-known/axis-directory` each carry `axis_version`: the protocol version of that document's own schema. The reference registry currently advertises `"0.2"` on `axis-access` and `"0.3"` on the v0.3-introduced documents.
+
+**Specified for v0.4 — not yet shipped:**
+
+- **AIT `axis_version` claim** — the protocol version the issuer minted the token against. No shipped issuer emits it and no shipped verifier checks it today. From v0.4, issuers SHOULD emit it on every AIT. Verifiers MUST NOT reject a token solely for lacking `axis_version` until their advertised minimum-supported version (see `/.well-known/axis-versions`, §6.16) is v0.4 or later; a verifier MAY reject a token that *declares* a version below the verifier's minimum-supported version.
+- **Registry supported-versions discovery** — `GET /.well-known/axis-versions` (§6.16) advertises the registry's current and minimum-supported protocol versions so implementers can detect mismatch before hitting a hard failure. See COMPATIBILITY.md for the mismatch-handling procedure.
+
+Version comparison follows semantic versioning: within the 0.x series, treat each minor version as potentially breaking (per the CHANGELOG versioning policy); from v1.0, only major-version differences are breaking.
+
 ### 4.4 Delegation Credential (DC)
 
 ```json
@@ -259,7 +283,7 @@ When the field is absent, a v0.3 verifier defaults to `"required"`; a v0.2 verif
   "issued_to": "axis:widget-corp:researcher",
   "root_operator": "widget-corp",
   "parent_credential_id": "dc:widget-corp:operator-editor-2026-03",
-  "scope": ["article:draft", "article:submit"],
+  "scope": ["content:create", "content:update"],
   "constraints": {
     "max_sub_delegation_depth": 0,
     "beat": "ai-infrastructure"
@@ -270,6 +294,7 @@ When the field is absent, a v0.3 verifier defaults to `"required"`; a v0.2 verif
   "revocation_url": "https://registry.axisprime.ai/revocation/credentials/dc:widget-corp:editor-researcher-2026-04",
   "proof": {
     "type": "Ed25519Signature2020",
+    "proofType": "jcs-eddsa-2026",
     "created": "2026-04-01T00:00:00Z",
     "verificationMethod": "did:axis:prime:widget-corp:editor#key-1",
     "proofPurpose": "assertionMethod",
@@ -289,7 +314,15 @@ When the field is absent, a v0.3 verifier defaults to `"required"`; a v0.2 verif
 - `scope` (array of strings) — permitted actions
 - `created` (string, ISO 8601) — issuance timestamp
 - `expires` (string, ISO 8601) — expiration timestamp
-- `proof` (object) — cryptographic proof per [W3C Data Integrity]
+- `proof` (object) — cryptographic proof per [W3C Data Integrity]. See "DC proof canonicalization" below for the normative signing bytes.
+
+**DC proof canonicalization (normative).** The bytes signed are the [RFC 8785] JCS canonicalization of the complete DC document **minus its `proof` field**, UTF-8 encoded; `proofValue` is the base64url Ed25519 signature over those bytes. This is the same JCS regime §6.1 establishes for all signed canonical bodies in the protocol, and it is what the reference SDK signs and the reference registry verifies. JCS canonicalization is REQUIRED here because DCs contain nested objects (`constraints`, `proof`) — the legacy v0.1 top-level-sort canonicalization (`JSON.stringify(body, Object.keys(body).sort())`) silently *filtered* nested keys rather than recursively sorting them, producing different canonical bytes for the same document and breaking nested-document signing. The proof envelope:
+
+- `type` — `"Ed25519Signature2020"` (the Data Integrity suite name).
+- `proofType` — `"jcs-eddsa-2026"`, RECOMMENDED. Explicitly selects the JCS regime. When `proofType` is absent, verifiers MUST attempt JCS verification first and MAY fall back to the deprecated legacy canonicalization (per §6.1); the legacy form is removed in v1.0. A proof carrying an *unrecognized* `proofType` MUST be rejected distinctly (e.g. `unsupported_proof_type`), never silently treated as legacy — accepting an unknown suite name would bypass the canonicalization contract.
+- `verificationMethod` — `<issuer-identifier>#key-1`, where the issuer identifier MAY be the DID form (`did:axis:prime:widget-corp:editor#key-1`) or the AXIS ID form (`axis:widget-corp:editor#key-1`; the form the reference SDK emits). Verifiers resolve the issuer's key from the registry regardless (§8 Step 3); the field is informative about *which* key, not a resolution instruction.
+- `proofPurpose` — `"assertionMethod"`.
+- `proofValue` — the signature, base64url.
 
 **Optional fields:**
 
@@ -317,6 +350,8 @@ Scopes fall into two layers, both of which MUST satisfy the v0.2 grammar above:
 Classification (matching the reference registry's `classifyScope`, in order): (1) recognized standard string → `standard`; (2) malformed grammar → `invalid`; (3) first segment is a reserved standard domain but not a recognized string → `invalid` (domain squatting); (4) first segment matches `x-<vendor>` → `custom`; (5) otherwise (grammar-valid, neither standard-domain nor `x-`-prefixed) → `invalid`.
 
 This is adoption pull, not enforcement at the protocol layer: an agent holding `content:comment` works at every platform that speaks the standard, while a platform that invents `x-acme:commenting:add` only interoperates with agents that learned that string. The standard set is a versioned seed (Appendix B), grown by proposal, W3C-vocabulary-first (ActivityStreams 2.0, schema.org Actions, ODRL).
+
+**Enforcement status.** The reference registry ships the two-layer classifier and publishes the vocabulary at `/.well-known/axis-scopes`, but its delegation **write** path currently validates the v0.2 grammar only — a grammar-valid unprefixed non-standard scope (e.g. `article:draft`) is still accepted on `POST /delegations` today. Vocabulary-layer classification is therefore enforced at *verify/authorize* time by platforms (which check for the specific standard strings they require, e.g. `content:comment`), not yet at credential-mint time. Wiring the classifier into the registry write path is tracked for a subsequent release; issuers SHOULD already restrict themselves to standard or `x-<vendor>:` scopes so their credentials survive that tightening.
 
 #### 4.4.2 Ephemeral sub-agent delegates (v0.3)
 
@@ -551,21 +586,38 @@ Resolve an OIR. Same tiered visibility as §6.2.
 
 ### 6.4 `GET /verify?token=<AIT>`
 
-Verify an AIT.
+Verify an AIT. The registry checks token structure, the presence of a non-empty `aud` claim (value matching is platform-side; see §4.3), the Ed25519 signature against the agent's registered key, expiry, and agent status.
 
-Response:
+Response (valid):
 ```json
 {
   "valid": true,
   "agent_id": "axis:widget-corp:editor",
-  "operator_id": "widget-corp",
-  "verification_tier": "domain",
+  "operator_id": "axis:widget-corp:operator",
   "status": "active",
-  "expires_at": "2026-04-16T00:00:00Z"
+  "expires_at": "2026-04-16T00:00:00Z",
+  "dlg": "dc:widget-corp:editor-2026-04",
+  "delegation_id": "dc:widget-corp:editor-2026-04",
+  "scope": null,
+  "delegation_resolved": true,
+  "delegation_valid": true,
+  "delegation_bound_to_agent": true,
+  "delegation_depth": 2,
+  "effective_scope": ["content:comment"]
 }
 ```
 
-If invalid, returns `{ "valid": false, "reason": "<reason>" }` with a 200 response (the verification request itself succeeded; the token is just invalid).
+- `operator_id` is returned in the canonical `axis:{operator}:operator` form, resolved authoritatively from the agent's registry record — never from the token payload.
+- When the AIT carries a `dlg` claim, the registry resolves the delegation chain to root (§6.9.1) and returns the `delegation_*` fields plus the chain's trustworthy `effective_scope` (root-to-leaf intersection). Top-level `valid` remains the *identity* assertion (signature + agent status); the delegation's trustworthiness is surfaced separately as `delegation_valid` for the platform to act on. `delegation_bound_to_agent` confirms the named credential's leaf `issued_to` is the presenting agent — a delegation issued to someone else does not authorize this presenter. `delegation_id` mirrors `dlg` for legacy consumers.
+- `scope` echoes any self-declared `scope` claim from the token; it is NOT trustworthy authorization data — platforms enforce against `effective_scope`.
+
+If invalid, returns HTTP 200 (the verification request itself succeeded; the token is just invalid) with a stable machine-readable `code`:
+
+```json
+{ "valid": false, "code": "token_expired", "agent_id": "axis:widget-corp:editor", "reason": "Token expired", "expired_at": "2026-04-15T00:00:00Z" }
+```
+
+`code` is one of: `invalid_signature`, `token_expired`, `agent_revoked` (covers revoked and deactivated), `agent_suspended`. Structural failures return 400 with the standard error envelope: `invalid_request` (not a JWT, or header is not `typ: AIT` / `alg: EdDSA`) or `missing_aud` (the AIT lacks a non-empty `aud` claim). An unknown agent returns 404 (`agent_not_found`).
 
 ### 6.5 `GET /revocation/:agent_id`
 
@@ -606,6 +658,44 @@ Request body: a DC as specified in §4.4, minus the `proof` field (the registry 
 ### 6.9 `GET /delegations/:id`
 
 Retrieve a Delegation Credential by ID. Public endpoint.
+
+#### 6.9.1 `GET /delegations/:id/chain` — chain resolution (dual-mode)
+
+Resolve and verify a delegation chain. Public endpoint. The `:id` parameter accepts BOTH identifier forms a verifier may hold, and the two forms have different resolution semantics:
+
+1. **Delegation-credential id** (the form an AIT's `dlg` claim carries, §4.3) — the chain is resolved **upward from that credential** via `parent_credential_id` to the root, and the verdict is **pinned** to it: `chainValid` reflects only the named credential's chain, and the response carries a top-level `delegation` block (id, scope, parties, status, expiry) plus the chain's `effective_scope` (the root-to-leaf scope intersection per §4.4 matching rules). A verifier holding a token's `dlg` claim MUST enforce against this pinned scope — never against the union of the delegatee's other delegations.
+2. **Agent identifier** (AXIS ID, DID, or bare slug) — the registry finds the agent's newest active delegation and walks issuer-to-issuer back to the root operator. This form answers "does this agent have a valid chain?" without pinning to a specific credential.
+
+**Detection.** Identifiers with the `dc:` prefix (the registry-generated credential-id form) are treated as delegation ids outright — no agent-identifier form starts with `dc:`, so the prefix is unambiguous. Other identifiers try agent resolution first, then fall back to a direct delegation lookup (issuer-chosen ids on signed submissions may use any scheme). Unknown `dc:`-prefixed ids return 404 `delegation_not_found`; other unknown identifiers return 404 `agent_not_found`.
+
+Response (delegation-id form; the agent form omits the `delegation` and `effective_scope` blocks):
+
+```json
+{
+  "agent": "did:axis:prime:widget-corp:editor",
+  "axis_id": "axis:widget-corp:editor",
+  "delegation": {
+    "id": "dc:widget-corp:editor-2026-04",
+    "scope": ["content:comment"],
+    "issued_by": "axis:widget-corp:operator",
+    "issued_to": "axis:widget-corp:editor",
+    "status": "active",
+    "expires": "2026-05-01T00:00:00Z"
+  },
+  "effective_scope": ["content:comment"],
+  "chainValid": true,
+  "chainDepth": 1,
+  "chain": [
+    { "delegation": "dc:widget-corp:editor-2026-04", "from": "axis:widget-corp:operator", "to": "axis:widget-corp:editor", "scope": ["content:comment"], "signatureValid": true, "expired": false, "status": "active" }
+  ],
+  "rootOperator": { "domain": "widget-corp.com", "verified": true },
+  "verifiedAt": "2026-07-07T00:00:00Z"
+}
+```
+
+Per-link checks: proof signature against the resolved issuer key (`signatureValid` reported truthfully per link; legacy/unsigned rows report `false`), status, expiry (`created <= now < expires`), root-operator consistency, scope attenuation, cycle detection, and a chain-depth cap of 16.
+
+**Trust note.** This endpoint is a *convenience* — the registry walking its own stored chain. A verifier performing full §8 verification of an inline-presented chain does the same checks locally; a verifier that received only an AIT with `dlg` uses this endpoint (or `GET /verify`, which embeds the same resolution) to obtain the trustworthy effective scope.
 
 ### 6.10 `DELETE /delegations/:id`
 
@@ -714,6 +804,34 @@ Both the manifest (§6.13) and the directory are static and signed, so steady-st
 
 Registrar admission criteria (what a registry must do to be certified) are a governance/conformance matter (`axis-conformance`), not part of this wire protocol.
 
+### 6.16 `GET /.well-known/axis-versions` (v0.4 — specified, not yet shipped)
+
+Registry supported-versions discovery. Publishes the protocol versions the registry currently speaks so implementers can detect a version mismatch up front rather than through a hard failure mid-flow. Public, no auth, edge-cacheable.
+
+**Status — specified, not yet shipped.** The reference registry does not implement this endpoint today; it is specified here as a v0.4 addition. Until it ships, implementers infer version support from the `axis_version` fields on the discovery documents (§4.3.2) and the CHANGELOG.
+
+Response:
+```json
+{
+  "axis_version": "0.4",
+  "current": "0.4",
+  "minimum_supported": "0.2",
+  "versions": [
+    { "version": "0.4", "status": "current" },
+    { "version": "0.3", "status": "supported" },
+    { "version": "0.2", "status": "supported" },
+    { "version": "0.1", "status": "sunset" }
+  ],
+  "updated_at": "2026-07-07T00:00:00Z"
+}
+```
+
+- `current` — the newest protocol version this registry fully implements.
+- `minimum_supported` — the oldest version whose credentials and API calls this registry still accepts. Anything older MAY be rejected.
+- `versions[].status` — one of `current`, `supported`, `deprecated` (still works; scheduled for removal — see COMPATIBILITY.md for the announce → deprecate → sunset intent), `sunset` (no longer accepted).
+
+Clients SHOULD check this document when they encounter an unrecognized field, a rejected credential, or a new deployment, and SHOULD warn their operator when the client's own protocol version falls outside the `[minimum_supported, current]` window. See COMPATIBILITY.md for the full mismatch-handling procedure.
+
 ## 7. Platform-side access control
 
 Every receiving platform accepting agent interactions SHOULD publish its access requirements at `/.well-known/axis-access`. v0.2 introduces a REQUIRED `audience` field that platforms publish so issuers can populate the `aud` claim on AITs intended for that platform (see §4.3).
@@ -749,6 +867,8 @@ Response:
 - `allow_unverified` — boolean. If `true`, requests without an AIT are accepted (the platform chooses whether to treat them as verified or as anonymous traffic). If `false`, requests without an AIT are rejected.
 - `registration_url` — where to direct unregistered agents or operators who don't meet the minimum tier
 - `blocked_operators`, `approved_operators`, `rate_limits` (v0.3, OPTIONAL) — operator allow/block lists and rate-limit hints, enforced platform-side. Published for schema completeness; a platform that does not operator-gate leaves the lists empty/absent.
+- `actions` (OPTIONAL, shipped in the reference commenting platform) — an array describing how to *invoke* this platform, not just what it requires: per-action `id`, `description`, `method`, `path`, `auth` (e.g. `{ "header": "X-AXIS-Token", "scheme": "AIT" }`), `required_scopes`, a minimal `request` field schema, and expected `responses`. Strictly additive and advisory — consumers that predate the field ignore it, and its absence remains valid. Deliberately minimal; not a full OpenAPI document.
+- `platform_id` (OPTIONAL) — a human-oriented platform label. `audience` is the normative identifier; shipped platform implementations omit `platform_id` and remain conformant.
 
 **Reference-registry note.** The reference registry, acting as a platform for its own endpoints, advertises `axis_version: "0.2"` on this document and a permissive policy (`minimum_verification_level: "email"`, `allow_unverified: true`, empty `required_scopes`). It does not yet emit `proof_of_possession`; the v0.3 PoP fields above are the spec design for platforms that adopt sender-constrained AITs.
 
@@ -760,7 +880,16 @@ v0.2 supports only the pull model: an agent reads `/.well-known/axis-access` pro
 
 Status codes carry funnel meaning and are used precisely:
 
-- **No AIT / no AXIS identity → `401 Unauthorized`**, with `WWW-Authenticate: AXIS`. ("Retry with credentials" — the sign-up funnel.)
+- **No AIT / no AXIS identity → `401 Unauthorized`**, with a `WWW-Authenticate: AXIS` challenge. ("Retry with credentials" — the sign-up funnel.) The challenge header carries discovery parameters so a refused agent can self-serve the fix:
+
+  ```
+  WWW-Authenticate: AXIS realm="workspace", audience="files.example.com", registry="https://registry.axisprime.ai", discovery="/.well-known/axis-access"
+  ```
+
+  - `realm` — the protected surface's label.
+  - `audience` — the platform's stable audience identifier (§4.3, §7), so a retrying agent mints the AIT with the right `aud` without a separate fetch.
+  - `registry` — the registry the platform verifies against (where an unregistered agent should go).
+  - `discovery` — the path to the platform's `/.well-known/axis-access` document.
 - **Valid AIT but tier too low or scope insufficient → `403 Forbidden`**. ("Authenticated but not authorized" — the level-up funnel, the deny-and-show-why moment.)
 
 Both carry the same body, scoped to the refused action:
@@ -785,6 +914,7 @@ Both carry the same body, scoped to the refused action:
 - `axis_error` (machine-readable): one of `no_credential`, `insufficient_verification`, `insufficient_scope`, `operator_revoked`, `agent_revoked`, `expired`.
 - `message` — human-readable and specific.
 - `action` — the scope the refused action maps to.
+- `missing_scopes` (OPTIONAL array) — on `insufficient_scope` denials, the exact scope strings the request required but the presented chain did not cover. Shipped platform verifiers emit this alongside `axis_error`; it is the minimal machine-actionable form of the `required`/`current` gap.
 - `required` vs `current` — the gap, as data.
 - `remedy` — `what`/`how` in plain language; `url` deep-links to the exact upgrade/registration flow carrying the operator id, target tier/scope, and a `return` URL so the operator lands back at the original action. The `remedy.url` SHOULD derive from the platform's `registration_url` (§7) plus gap-describing params, so platforms already publishing `registration_url` get most of this for free.
 - `audience` — echoes the platform's `aud` (§4.3) so a retrying agent mints the AIT with the right `aud` without a separate fetch.
@@ -794,7 +924,9 @@ Both carry the same body, scoped to the refused action:
 
 **Agent behavior.** Agents SHOULD surface `message` + `remedy` to their operator and MAY auto-follow `remedy.url` only for human-gated authority-creating steps — an agent may present authority, never grant itself authority.
 
-**Status — design only; not yet implemented in the reference registry.** The inline-challenge body is specified here for platforms to adopt; the reference registry does not yet emit it.
+**Status — partially shipped (platform-side).** Production platform-side verifiers now implement the skeleton of this section: the `401` + parameterized `WWW-Authenticate: AXIS` challenge with a structured body carrying `axis_error: "no_credential"`, and `403` denials carrying `axis_error: "insufficient_scope"` with the `missing_scopes` named. The richer `required`/`current`/`remedy` blocks and the `challenge` nonce are specified but not yet shipped anywhere. The reference registry itself (acting as a platform for its own endpoints) does not emit the inline-challenge body.
+
+**Layering note (shipped behavior).** Platform verifiers in production distinguish two 403 layers explicitly: a *protocol-layer scope denial* (`axis_error: "insufficient_scope"` — the credential chain does not cover the required scope) and a *platform-policy denial* (the platform's own admission rules — operator blocklists, verification-tier minimums, resource-level policy — rejected an otherwise-valid, in-scope credential). Policy denials use platform-defined codes (`operator_blocked`, `tier_too_low`, etc.); `axis_error` values are reserved for the protocol-layer conditions enumerated above. Platforms SHOULD keep the two layers distinguishable in their deny bodies so agents can tell "get a better credential" from "this platform said no."
 
 ## 8. Verification procedure
 
@@ -803,8 +935,8 @@ A verifier receiving a request from an agent MUST perform the following steps in
 ### Step 1 — Authenticate the agent
 
 1. Extract the AIT and (v0.3) DPoP proof from the request:
-   - AIT: from `Authorization: DPoP <AIT>`, or `Authorization: Bearer <AIT>` when the platform advertises `proof_of_possession: "bearer_allowed"`.
-   - DPoP proof (v0.3): from the `DPoP` header.
+   - AIT, bearer presentation (shipped): from the `X-AXIS-Token` header, `Authorization: Bearer <AIT>`, or the `?ait=` query parameter (§4.3 Presentation channels; the reference platform SDK checks them in the order Bearer → `X-AXIS-Token` → query). Bearer presentations are accepted when the platform advertises `proof_of_possession: "bearer_allowed"` (or predates PoP).
+   - AIT, sender-constrained presentation (v0.3, specified not shipped): from `Authorization: DPoP <AIT>`, with the DPoP proof from the `DPoP` header.
 2. Parse the AIT's header and payload.
 3. Validate claims: `iat`, `exp`, `aud`, `axis_version`, `iss`, `registry_url`.
 4. **(v0.3) Verify the declared registry is legitimate** before trusting any record from `registry_url`. This extends Step 1 with the CA-trust check:
@@ -837,7 +969,7 @@ A verifier receiving a request from an agent MUST perform the following steps in
 If the request requires authority beyond the agent's identity (i.e. a DC is present):
 
 1. Walk the chain from the agent's DC back to the root:
-   - For each DC, verify its `proof` signature using the issuer's public key (operator's key if `issued_by` is the operator; delegating agent's key otherwise).
+   - For each DC, verify its `proof` signature using the issuer's public key (operator's key if `issued_by` is the operator; delegating agent's key otherwise). The verified bytes are the RFC 8785 JCS canonicalization of the DC minus its `proof` field (§4.4 DC proof canonicalization); apply the `proofType` regime rules from §4.4 (JCS-first with deprecated legacy fallback when `proofType` is absent; reject unrecognized `proofType` values distinctly).
    - Confirm `root_operator` is byte-for-byte identical across all credentials.
    - Confirm each DC's `scope` is a subset of its parent's `scope`.
    - Confirm `created <= now < expires` for each DC.
@@ -892,13 +1024,13 @@ Operator A fetches `axis:external-co:specialist` from `registry.externalco.com`.
 
 ```json
 {
-  "axis_version": "0.1",
+  "axis_version": "0.2",
   "type": "DelegationCredential",
   "id": "dc:widget-corp:specialist-hire-2026-04",
   "issued_by": "widget-corp",
   "issued_to": "axis:external-co:specialist",
   "root_operator": "widget-corp",
-  "scope": ["article:research", "article:draft", "article:submit"],
+  "scope": ["content:read", "content:create", "content:update"],
   "constraints": {
     "max_sub_delegation_depth": 0,
     "require_editor_review_before_publish": true
@@ -937,7 +1069,7 @@ Ghost has no prior relationship to any party. Following §8:
 6. Resolves `axis:external-co:specialist` from `registry.externalco.com` (foreign registry). Verifies Agent B's AIT signature using the specialist's public key from that foreign registry.
 7. Checks revocation on both agents and both DCs.
 8. Verifies the CPA's signature.
-9. Confirms `article:publish` is within scope.
+9. Confirms `content:publish` is within the scope of Agent C's DC (the publish request is Agent C's; the specialist's DC covered only `content:read` / `content:create` / `content:update`).
 
 All checks pass. Ghost accepts the publish request. At no point did it call back to any proprietary registry or require pre-configuration with either operator.
 
@@ -1020,7 +1152,11 @@ Revocation is asynchronous. A verifier checking revocation at time T may miss a 
 
 ### 11.3 Replay attacks
 
-AITs carry `iat` and `exp` claims. Verifiers MUST reject AITs outside this window. Short AIT lifetimes (<24h) limit replay exposure. v0.2's REQUIRED `aud` claim closes cross-platform replay. v0.3's sender-constrained AITs (`cnf.jkt` + DPoP, §4.3.1) close the remaining same-platform leaked-AIT replay class: a captured AIT presented without simultaneous control of the agent's private key is rejected, and the `jti × jkt` replay cache rejects a re-presented DPoP proof. Platforms advertising `proof_of_possession: "required"` enforce this; the optional RFC 9421 message-signature profile additionally binds the request body.
+AITs carry `iat` and `exp` claims. Verifiers MUST reject AITs outside this window. Short AIT lifetimes (<24h) limit replay exposure. v0.2's REQUIRED `aud` claim closes cross-platform replay.
+
+**Bearer-mode same-platform hardening (shipped).** Until sender-constrained AITs ship, the reference platform implementations layer three bearer-mode controls: (1) the `aud` match, (2) a platform-enforced max-TTL ceiling on `exp` (rejecting long-lived tokens regardless of what the issuer set), and (3) **single-use `jti`**: the platform records each consumed `jti` until the token's `exp` and rejects re-presentation (the reference commenting platform returns `409` with code `ait_replay`, and rejects tokens missing `jti` outright). Platforms adopting this pattern SHOULD fail closed when the replay store is unavailable. This makes a captured AIT worthless after first use at that platform, at the cost of requiring issuers to mint per-request tokens — cheap, since minting is a local signature.
+
+v0.3's sender-constrained AITs (`cnf.jkt` + DPoP, §4.3.1) close the remaining same-platform leaked-AIT replay class: a captured AIT presented without simultaneous control of the agent's private key is rejected, and the `jti × jkt` replay cache rejects a re-presented DPoP proof. Platforms advertising `proof_of_possession: "required"` enforce this; the optional RFC 9421 message-signature profile additionally binds the request body.
 
 ### 11.4 Chain-rerooting attacks
 
@@ -1096,6 +1232,7 @@ The following well-known URIs are defined by this specification:
 - `/.well-known/axis-registry` — registry self-identification manifest (v0.3, §6.13)
 - `/.well-known/axis-scopes` — recognized scope vocabulary (v0.3, §6.14)
 - `/.well-known/axis-directory` — root registrar directory (v0.3, §6.15)
+- `/.well-known/axis-versions` — registry supported protocol versions (v0.4, §6.16; specified, not yet shipped)
 
 AXIS proposes registration of these URIs with IANA following the procedures in [RFC 8615].
 
@@ -1142,6 +1279,8 @@ AXIS is in active development. Forward-looking work is planned for future versio
 
 **v0.3 — planned (designed as roadmap, not specified here).** W3C VC-compatible encoding for AIT/DC/TA — optional JSON-LD envelope alongside the native JWT form (deliverable #2; full design TBD — see the VC-encoding candidate stub for problem statement and open questions); agent/operator key rotation protocol — multi-key AIR with validity windows or signed rotation records, plus reconciliation with `cnf.jkt` PoP binding (deliverable #4; full design TBD — see the key-rotation candidate stub). Both remain to be specified before v0.3 ratifies. Also planned: Trust Attestation aggregation and scoring, agent notification protocol, delegation credential constraint enhancements, **Evidence Record Types** (signed wire-format records for AI-disclosure receipts, AI-decision notification ledger entries, human-oversight assertions, and Fundamental Rights Impact Assessment attestations — sized for EU AI Act Art. 50, Art. 14, Art. 26(11), and Art. 27 evidence respectively; see ROADMAP.md), client SDK specifications, registrar compliance attestations, AXIS Skills Protocol, agent rental, deprecation of v0.1 DID forms (resolve-only), removal of legacy proof canonicalization.
 
+**v0.4 — specified in this document, not yet shipped.** Protocol version signaling: the AIT `axis_version` claim as a SHOULD-emit (§4.3.2) and the `/.well-known/axis-versions` supported-versions discovery endpoint (§6.16). Also targeted for v0.4: wiring the two-layer scope-vocabulary classifier into the registry delegation write path (§4.4.1 enforcement-status note) and promoting the reserved own-content comment scopes (Appendix B) to enforced standard scopes as platform support lands.
+
 **Deferred — no current driver.** Cryptographic algorithm agility / negotiation (§11.8): AXIS remains Ed25519-only through v0.3; algorithm negotiation is explicitly out of v0.3 scope and revisited only when a concrete driver (e.g. a post-quantum migration mandate) appears.
 
 **v1.0 — stability target.** Non-breaking-change threshold. Data-model and API-contract surfaces stable under semantic versioning. Pre-v1.0 releases may contain breaking changes between minor versions; implementers should track `CHANGELOG.md` closely.
@@ -1165,6 +1304,7 @@ This table is a versioned **seed**, grown by proposal (W3C-vocabulary-first: Act
 | Domain | Standard scopes | Description |
 |---|---|---|
 | `content` | `content:read`, `content:create`, `content:update`, `content:delete`, `content:comment`, `content:publish` | Read / create / update / delete / comment on / publish content items |
+| `content` (own-content, RESERVED) | `content:comment:read`, `content:comment:edit-own`, `content:comment:delete-own` | Read comment threads / edit / retract **only comments the agent itself authored** — see below |
 | `social` | `social:follow`, `social:like`, `social:announce`, `social:invite`, `social:join`, `social:leave`, `social:block`, `social:flag` | Follow, like/react, boost/re-share, invite, join, leave, block, flag |
 | `commerce` | `commerce:quote`, `commerce:order`, `commerce:purchase`, `commerce:pay`, `commerce:sell`, `commerce:refund`, `commerce:offer`, `commerce:accept`, `commerce:reject` | Quote, order, purchase, pay, sell, refund, offer, accept, reject |
 | `data` | `data:read`, `data:export`, `data:write`, `data:modify`, `data:share`, `data:delete` | Read, bulk-export, write, modify, share, delete data records |
@@ -1174,3 +1314,8 @@ This table is a versioned **seed**, grown by proposal (W3C-vocabulary-first: Act
 | `compute` | `compute:invoke`, `compute:read` | Invoke a compute task/function, read results or status |
 
 **Reserved domains:** `content`, `social`, `commerce`, `data`, `comms`, `account`, `scheduling`, `compute`. A scope whose first segment is one of these but which is not a recognized string above (including domain wildcards like `content:*`) is INVALID. Custom scopes use `x-<vendor>:` where `<vendor>` matches `[a-z0-9-]+`.
+
+**Shipped vs reserved.**
+
+- **Shipped and enforced today:** `content:comment` is the canonical commenting scope, enforced in production — the reference commenting platform requires it (`required_scopes: ["content:comment"]` in its `/.well-known/axis-access`) and denies requests whose delegation chain does not cover it. The scope for commenting is `content:comment`, never a platform-invented string like `comments:write`. Production platform-side verifiers also enforce `data:read`, `data:write`, and `data:delete` for resource-access surfaces. The remaining standard strings above are recognized vocabulary (published via `/.well-known/axis-scopes`) that platforms adopt as they gate the corresponding actions.
+- **Reserved — own-content comment scopes (specified, not yet enforced by any shipped platform):** `content:comment:read`, `content:comment:edit-own`, `content:comment:delete-own`. Semantics: the holder may read comment threads, and may edit or retract (delete) **only comments authored by the same agent identity** — the platform matches the stored authoring `agent_id` against the presenting agent and MUST reject own-content operations on comments the agent did not author. `content:comment:edit-own` and `content:comment:delete-own` are deliberately narrower than `content:update` / `content:delete` (which cover content items generally, without the authorship constraint); a platform gating comment edits SHOULD require the own-content scope, not the general one. These strings join the closed standard enum as of this revision; implementations updating their vocabulary tables MUST classify them `standard`. Note the shipped reference registry's vocabulary table predates this revision (its classifier does not yet recognize them, and its `/.well-known/axis-scopes` does not yet list them); no shipped platform enforces them yet. Enforcement is targeted alongside comment-editing surfaces (§17 v0.4).
