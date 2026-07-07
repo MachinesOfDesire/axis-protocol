@@ -1,9 +1,9 @@
 # AXIS — Agent Cross-system Identity Standard
 
-**Version:** 0.2.0
+**Version:** 0.3.1
 **License:** Apache 2.0
 **Reference implementation:** [AXIS Prime](https://axisprime.ai)
-**Status:** Public release. Breaking changes possible before v1.0; see [CHANGELOG.md](./CHANGELOG.md) for the versioning policy.
+**Status:** Public release. Breaking changes possible before v1.0; see [CHANGELOG.md](./CHANGELOG.md) for the versioning policy and [COMPATIBILITY.md](./COMPATIBILITY.md) for version-mismatch handling.
 
 ---
 
@@ -74,20 +74,24 @@ The **Agent Identity Record** and **AXIS Identity Token (AIT)**. Persistent, cry
 If you want to integrate with AXIS as a verifier (platform accepting agent traffic):
 
 ```javascript
-// Receive an AIT from the agent (typically in Authorization header)
-const ait = request.headers.get('Authorization')?.replace(/^Bearer /, '');
+// Receive an AIT from the agent (X-AXIS-Token header; SPEC.md §4.3 Presentation channels)
+const ait = request.headers.get('X-AXIS-Token');
+if (!ait) return new Response('AXIS credential required', { status: 401 });
 
-// Verify with the registry
-const res = await fetch(`https://registry.axisprime.ai/verify?token=${ait}`);
-const { valid, agent_id, operator_id, verification_tier } = await res.json();
+// Verify with the registry (checks signature, expiry, agent status, and —
+// when the token carries a `dlg` claim — resolves the delegation chain)
+const res = await fetch(`https://registry.axisprime.ai/verify?token=${encodeURIComponent(ait)}`);
+const { valid, agent_id, operator_id, delegation_valid, effective_scope } = await res.json();
 
 if (!valid) return new Response('Invalid agent credentials', { status: 401 });
 
-// Apply your policy — e.g. minimum verification tier
-if (verification_tier === 'email') {
-  return new Response('Domain-verified operators only', { status: 403 });
+// Apply your policy — e.g. require a delegated scope (SPEC.md §4.4.1)
+if (!delegation_valid || !effective_scope?.includes('content:comment')) {
+  return new Response('content:comment scope required', { status: 403 });
 }
 
+// Also enforce `aud` against your advertised audience, and consider
+// single-use `jti` replay protection (SPEC.md §4.3, §11.3).
 // Pass through with agent context
 ```
 
@@ -103,10 +107,11 @@ axis-protocol/
 ├── CONTRIBUTORS.md                  # Signed CLA record
 ├── SECURITY.md                      # Security disclosure policy
 ├── IMPLEMENTATIONS.md               # Compatible registry implementations
-├── ROADMAP.md                       # v0.2 and beyond
-├── CHANGELOG.md                     # Version history
+├── ROADMAP.md                       # Forward-looking roadmap narrative
+├── CHANGELOG.md                     # Version history + versioning policy
+├── COMPATIBILITY.md                 # Version-mismatch handling for implementers
 ├── LICENSE                          # Apache 2.0
-└── schemas/                         # JSON schemas (planned)
+└── schemas/                         # JSON schemas for the credential types
     ├── agent-identity.json
     ├── operator-identity.json
     ├── ait.json
@@ -127,27 +132,28 @@ The AXIS Protocol specification is owned by Kipple Labs, Inc. and published unde
 
 ## Relationship to existing standards
 
-- **W3C DIDs** — AXIS agent IDs follow W3C Decentralized Identifier syntax: `axis:operator:agent` can be expressed as `did:axis:registry:agent`. Formal `did:axis` method registration with W3C is planned for v0.2.
-- **W3C Verifiable Credentials** — AXIS Delegation Credentials and Trust Attestations are designed to be expressible as W3C VCs. A VC-compatible encoding is planned for v0.2.
+- **W3C DIDs** — AXIS agent IDs follow W3C Decentralized Identifier syntax: `axis:operator:agent` can be expressed as `did:axis:registry:operator:agent`. The formal `did:axis` method is specified in SPEC.md §10.3 (v0.3).
+- **W3C Verifiable Credentials** — AXIS Delegation Credentials and Trust Attestations are designed to be expressible as W3C VCs. A VC-compatible encoding is on the roadmap (SPEC.md §17).
 - **zcap-spec** — AXIS delegation semantics align with the W3C Authorization Capabilities specification. The attenuation rule and chain depth limits follow zcap invariants.
-- **JWT / RFC 7519** — AXIS Identity Tokens are standard JWTs with AXIS-specific claims. Signed using EdDSA per RFC 8037.
-- **MCP (Model Context Protocol)** — AXIS Skills (planned for v0.2 as the future capability marketplace layer) will build on MCP, making them model-agnostic and runtime-agnostic.
+- **JWT / RFC 7519** — AXIS Identity Tokens are standard JWTs with AXIS-specific claims. Signed using EdDSA per RFC 8037. Signed canonical bodies (registration proofs, delegation envelopes) use RFC 8785 JCS canonicalization.
+- **MCP (Model Context Protocol)** — AXIS Skills (a roadmap item; the future capability marketplace layer) will build on MCP, making them model-agnostic and runtime-agnostic.
 
 ## Reference implementation
 
-AXIS Prime implements AXIS v0.1 as a Cloudflare Workers + D1 application. It is currently in **closed beta**: the registry API, verification endpoint, and interactive demo are publicly readable, but self-service operator registration is gated while the billing surface and operator onboarding are finalized.
+AXIS Prime implements the AXIS v0.2 credential surface plus the v0.3 discovery documents (`/.well-known/axis-registry`, `/.well-known/axis-scopes`, `/.well-known/axis-directory`) as a Cloudflare Workers + D1 application. It is currently in **closed beta**: the registry API, verification endpoint, and interactive demo are publicly readable, but self-service operator registration is gated while the billing surface and operator onboarding are finalized.
 
 - **Registry API (read-only public):** `https://registry.axisprime.ai`
+- **Registry source:** [github.com/MachinesOfDesire/axis-registry](https://github.com/MachinesOfDesire/axis-registry) (Apache 2.0)
 - **Interactive demo:** `https://try.axisprime.ai`
 - **Operator signup:** `https://signup.axisprime.ai` (closed beta — contact for access)
 - **Key algorithm:** Ed25519 (Cloudflare Workers crypto)
 - **Storage:** Cloudflare D1 (SQLite at the edge)
 
-The reference implementation source is not open source at this time. The protocol it implements is open; any party can build a compatible registry from the spec alone.
+The protocol is open; any party can build a compatible registry from the spec alone. See [IMPLEMENTATIONS.md](./IMPLEMENTATIONS.md).
 
 ## Versioning
 
-This is v0.1 — the first public release candidate. Breaking changes are possible within the 0.x series; v1.0 will freeze the stable contract under strict semantic versioning discipline.
+The current specification version is **0.3.1** (see the header of [SPEC.md](./SPEC.md)). Breaking changes are possible within the 0.x series; v1.0 will freeze the stable contract under strict semantic versioning discipline. Implementers should read [COMPATIBILITY.md](./COMPATIBILITY.md) for how to detect and handle version mismatch.
 
 See [CHANGELOG.md](./CHANGELOG.md) for version history and the versioning policy. The consolidated forward-looking roadmap lives in [SPEC.md §17](./SPEC.md#17-roadmap); [ROADMAP.md](./ROADMAP.md) holds the longer-form narrative.
 
