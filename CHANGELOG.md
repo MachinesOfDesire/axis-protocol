@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 **Versioning policy.** Pre-v1.0 releases (all 0.x versions) may contain breaking changes between minor versions. v1.0 will freeze the stable contract under stricter discipline: patch releases additive only, minor releases may add optional fields or endpoints, major releases may break backward compatibility only with explicit governance approval. Track this file closely until v1.0.
 
+## [Unreleased]
+
+### Corrected (spec text aligned to shipped behavior)
+
+- **§7.1 — "partially shipped" status notes updated: the shipped deny taxonomy now covers the full enum.** Production platform-side verifiers previously emitted only the `no_credential` / `insufficient_scope` skeleton alongside implementation-specific codes (`missing_token`, `tier_too_low`, `verification_failed`, …); they have consolidated onto this section's taxonomy. Shipped behavior now: every `401` carries the parameterized `WWW-Authenticate: AXIS` challenge; `axis_error` is emitted wherever the enum names the condition (`no_credential`, `expired`, `agent_revoked`, `operator_revoked`, `insufficient_scope` + `missing_scopes`, `insufficient_verification`); a granular platform `code` rides alongside for diagnostic detail. The layering note now names three distinguishable layers in shipped bodies (protocol scope, protocol verification, platform policy) and drops `tier_too_low` from the policy-code examples — verification-tier denials are the enum's `insufficient_verification`, not a platform code. The `required`/`current`/`remedy` blocks and `challenge` nonce remain specified-not-shipped. No change to any normative requirement — these are status-note corrections.
+
 ## [0.3.1] — 2026-07-07
 
 Patch release: a spec-to-shipped reconciliation pass plus version-discipline scaffolding. No new protocol mechanisms ship in this release; every correction below aligns the spec text with what the reference implementations (registry, protocol SDK, platform adapters) actually do on the wire today, and every genuinely new item is explicitly marked **specified, not yet shipped**.
