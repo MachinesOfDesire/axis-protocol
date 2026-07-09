@@ -79,7 +79,7 @@
         },
         "axis_version": {
           "type": "string",
-          "description": "Protocol version signaling (SPEC.md §4.3.2). Specified for v0.4, not yet emitted by shipped issuers; verifiers MUST NOT reject solely on its absence.",
+          "description": "Protocol version signaling (SPEC.md §4.3.2): the protocol version the issuer minted the token against. Shipped issuer-side (the reference hosted issuer emits it on every AIT); additive and forward-compatible. Verifiers MUST NOT reject a token for carrying or lacking it; verifier-side enforcement is specified for v0.4.",
           "pattern": "^\\d+\\.\\d+(?:\\.\\d+)?$"
         },
         "cnf": {
