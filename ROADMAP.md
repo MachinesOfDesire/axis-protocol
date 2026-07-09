@@ -2,11 +2,13 @@
 
 This document is the expanded narrative treatment of the protocol's forward roadmap. For the terse manifest inside the specification, see [SPEC.md §17](./SPEC.md#17-roadmap). Items listed here are **not** committed features — they represent current design intent and may change based on implementation feedback, real-world use cases, and standards-body engagement.
 
-Breaking changes between minor versions (v0.1 → v0.2) are expected. v1.0 will be the first stable release; see [SPEC.md §17.3](./SPEC.md#173-target-v10-stability) for the versioning policy.
+> **Status note (2026-07-08).** The narrative below predates the v0.2 (2026-05-10) and v0.3 (2026-06-14) releases, and its section headings mark **original targets, not current status**. Some items shipped in the release they were sketched for, some shipped later or in revised form, and some remain open. For what actually shipped in each release, [SPEC.md §17](./SPEC.md#17-roadmap) and [CHANGELOG.md](./CHANGELOG.md) are authoritative; where a sketch below conflicts with the shipped spec (notably the standard scope vocabulary — see SPEC.md Appendix B), the spec governs. The narrative is retained for design rationale.
+
+Breaking changes between minor versions are expected throughout the 0.x series. v1.0 will be the first stable release; see the versioning policy in [CHANGELOG.md](./CHANGELOG.md) and [SPEC.md §17](./SPEC.md#17-roadmap).
 
 ## v0.2 — planned
 
-The v0.2 release is focused on **hardening the cross-registry trust model, standardizing platform-facing discovery, and expanding the credential surface**. All items below are captured as terse bullets in [SPEC.md §17.1](./SPEC.md#171-planned-for-v02); this document adds rationale.
+The v0.2 release is focused on **hardening the cross-registry trust model, standardizing platform-facing discovery, and expanding the credential surface**. All items below are captured as terse bullets in [SPEC.md §17](./SPEC.md#17-roadmap); this document adds rationale.
 
 ### Registry discovery — `/.well-known/axis-registry`
 
@@ -125,9 +127,11 @@ Schemas are deferred to a partner-input cycle; the v0.2 PR will land the record-
 
 ## v0.3 — planned
 
-v0.3 extends depth and analytics on top of the v0.2 surface. Captured as terse bullets in [SPEC.md §17.2](./SPEC.md#172-planned-for-v03).
+v0.3 extends depth and analytics on top of the v0.2 surface. Captured as terse bullets in [SPEC.md §17](./SPEC.md#17-roadmap).
 
 ### Standard common scope vocabulary
+
+> **Shipped in v0.3, in revised form.** The vocabulary that shipped (SPEC.md §4.4.1 and Appendix B) differs from this sketch: it is a closed enum over eight reserved domains (the commenting scope is `content:comment`), custom scopes MUST carry an `x-<vendor>:` prefix rather than a bare platform prefix, and the reserved own-content comment scopes (`content:comment:read`, `content:comment:edit-own`, `content:comment:delete-own`) are specified but not yet enforced. The strings below are the pre-design sketch, retained for rationale only — do not implement from them.
 
 Built on top of v0.2's `/.well-known/axis-scopes` discovery. Defines the universal scopes every compliant platform SHOULD recognize:
 

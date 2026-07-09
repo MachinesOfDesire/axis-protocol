@@ -5,7 +5,7 @@
 **Author:** Josh Ashcroft
 **License:** Apache 2.0
 **Repository:** https://github.com/MachinesOfDesire/axis-protocol
-**Last updated:** 2026-07-07
+**Last updated:** 2026-07-08
 
 ## Abstract
 
@@ -97,7 +97,7 @@ All records are JSON. Field names are lowercase with underscores. Timestamps are
 
 **Required fields:**
 
-- `axis_version` (string) — protocol version, e.g. `"0.1"`
+- `axis_version` (string) — the protocol version whose data model this record conforms to; registry-generated records currently carry `"0.2"` (see §4.3.2)
 - `agent_id` (string) — globally unique, format `axis:{operator}:{agent-name}`
 - `operator_id` (string) — the operator controlling this agent
 - `public_key` (string) — Ed25519 public key, base64url-encoded
@@ -120,7 +120,7 @@ Optional fields enable presentation-layer functionality (display name, purpose, 
 
 ```json
 {
-  "axis_version": "0.1",
+  "axis_version": "0.2",
   "operator_id": "widget-corp",
   "public_key": "eBjj90caoNPHtKqCAn4OvDJ8_s03HT5iSYyEXZvkaTA",
   "key_algorithm": "Ed25519",
@@ -276,7 +276,7 @@ Version comparison follows semantic versioning: within the 0.x series, treat eac
 
 ```json
 {
-  "axis_version": "0.1",
+  "axis_version": "0.2",
   "type": "DelegationCredential",
   "id": "dc:widget-corp:editor-researcher-2026-04",
   "issued_by": "axis:widget-corp:editor",
@@ -938,7 +938,7 @@ A verifier receiving a request from an agent MUST perform the following steps in
    - AIT, bearer presentation (shipped): from the `X-AXIS-Token` header, `Authorization: Bearer <AIT>`, or the `?ait=` query parameter (§4.3 Presentation channels; the reference platform SDK checks them in the order Bearer → `X-AXIS-Token` → query). Bearer presentations are accepted when the platform advertises `proof_of_possession: "bearer_allowed"` (or predates PoP).
    - AIT, sender-constrained presentation (v0.3, specified not shipped): from `Authorization: DPoP <AIT>`, with the DPoP proof from the `DPoP` header.
 2. Parse the AIT's header and payload.
-3. Validate claims: `iat`, `exp`, `aud`, `axis_version`, `iss`, `registry_url`.
+3. Validate the required claims: `iss`, `aud`, `iat`, `exp` (§4.3). Validate optional claims only when present: `axis_version` per §4.3.2 (a verifier MUST NOT reject a token solely for lacking it), `registry_url` as an advisory pointer subject to the registry-legitimacy check below. Do not require claims §4.3 classifies OPTIONAL.
 4. **(v0.3) Verify the declared registry is legitimate** before trusting any record from `registry_url`. This extends Step 1 with the CA-trust check:
    - a. Extract `registry_url` (and the `registry` slug from the `did:axis` form).
    - b. Fetch that registry's `/.well-known/axis-registry` (§6.13); verify the manifest's self-signature against any active key in its `keys`.
