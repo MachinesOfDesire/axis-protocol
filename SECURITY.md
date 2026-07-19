@@ -29,7 +29,7 @@ Include:
 ### In scope
 
 - **AXIS protocol specification** — cryptographic weaknesses, logical flaws in delegation chains, authorization bypasses, registry enumeration attacks, identity impersonation vectors, replay or forgery attacks against AITs or DCs, privacy leaks in the Registry Data Visibility Model
-- **AXIS Prime reference implementation** — vulnerabilities in the deployed registry at `registry.axisprime.ai` and related services (`signup.axisprime.ai`, `admin.axisprime.ai`, `demo.axisprime.ai`, `try.axisprime.ai`)
+- **AXIS Prime reference implementation** — vulnerabilities in the deployed registry at `registry.axisprime.ai` and related services (`signup.axisprime.ai`, `admin.axisprime.ai`)
 - **Supply chain** — compromise paths through build tooling, dependencies, or CI/CD that would affect protocol-level integrity
 
 ### Out of scope

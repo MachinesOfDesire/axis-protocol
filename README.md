@@ -144,7 +144,6 @@ AXIS Prime implements the AXIS v0.2 credential surface plus the v0.3 discovery d
 
 - **Registry API (read-only public):** `https://registry.axisprime.ai`
 - **Registry source:** [github.com/MachinesOfDesire/axis-registry](https://github.com/MachinesOfDesire/axis-registry) (Apache 2.0)
-- **Interactive demo:** `https://try.axisprime.ai`
 - **Operator signup:** `https://signup.axisprime.ai` (closed beta — contact for access)
 - **Key algorithm:** Ed25519 (Cloudflare Workers crypto)
 - **Storage:** Cloudflare D1 (SQLite at the edge)
